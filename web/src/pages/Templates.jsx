@@ -96,6 +96,24 @@ export default function Templates() {
             ))}
             {buttons.length < 3 && <button type="button" className="link" onClick={() => setButtons([...buttons, { type: 'QUICK_REPLY', text: '' }])}>+ tambah tombol</button>}
           </div>
+          <label>Preview</label>
+          <div className="wa-preview">
+            <div className="wa-bubble">
+              {hType === 'IMAGE' && hFile && <img className="wa-header-img" src={URL.createObjectURL(hFile)} alt="" />}
+              {hType === 'IMAGE' && !hFile && <div className="wa-header-ph">🖼️ gambar header</div>}
+              {hType === 'TEXT' && hText && <div className="wa-header-txt">{hText}</div>}
+              <div className="wa-body">{f.body ? f.body.replace(/\{\{(\d+)\}\}/g, (_, n) => examples[n - 1] || `{{${n}}}`) : <span className="muted">isi pesan…</span>}</div>
+              {f.footer && <div className="wa-footer">{f.footer}</div>}
+            </div>
+            {buttons.filter((b) => b.text).length > 0 && (
+              <div className="wa-btns">
+                {buttons.filter((b) => b.text).map((b, i) => (
+                  <div key={i} className="wa-btn">{b.type === 'URL' ? '🔗' : b.type === 'PHONE_NUMBER' ? '📞' : '↩️'} {b.text}</div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="row">
             <button disabled={busy || !f.name || !f.body}>{busy ? 'Mengirim…' : 'Buat template'}</button>
             {msg?.ok && <span className="saved">✓ {msg.ok}</span>}

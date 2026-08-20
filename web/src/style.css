@@ -162,3 +162,14 @@ body { color: #1b2340; }
 .btnrow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
 .btnrow select, .btnrow input { padding: 7px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
 .btnrow input { flex: 1; }
+
+/* Preview template ala WhatsApp */
+.wa-preview { background: #e5ddd5; padding: 14px; border-radius: 10px; max-width: 340px; }
+.wa-bubble { background: #fff; border-radius: 8px; padding: 8px 10px; box-shadow: 0 1px 1px rgba(0,0,0,.1); font-size: 14px; }
+.wa-header-img { width: 100%; border-radius: 6px; display: block; margin-bottom: 6px; }
+.wa-header-ph { background: #f0f0f0; color: #999; border-radius: 6px; padding: 24px; text-align: center; margin-bottom: 6px; font-size: 13px; }
+.wa-header-txt { font-weight: 700; margin-bottom: 4px; }
+.wa-body { white-space: pre-wrap; word-break: break-word; color: #111; }
+.wa-footer { color: #888; font-size: 12px; margin-top: 6px; }
+.wa-btns { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.wa-btn { background: #fff; color: #1a73c7; text-align: center; padding: 8px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 1px 1px rgba(0,0,0,.1); }
