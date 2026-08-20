@@ -8,6 +8,7 @@ import {
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
 import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
+import { readMedia } from './store.js';
 
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
@@ -108,7 +109,7 @@ app.post('/api/send-media', async (req, res) => {
     const mediaId = await uploadMedia(buf, mime, filename);
     const waMsgId = await sendMedia(wa_id, type, mediaId, { caption, filename });
     const ext = (filename?.split('.').pop() || mime.split('/')[1] || 'bin').slice(0, 5);
-    const mediaUrl = await saveMediaFile(buf, `out-${waMsgId}.${ext}`);
+    const mediaUrl = await saveMediaFile(buf, `out-${waMsgId}.${ext}`, mime);
     const body = caption || filename || `[${type}]`;
     const id = await insertMessage({ waId: wa_id, direction: 'out', type, body, waMsgId, status: 'sent', mediaUrl });
     const message = { id, direction: 'out', type, body, media_url: mediaUrl, status: 'sent', created_at: Date.now() };
@@ -160,8 +161,13 @@ app.post('/api/broadcast', async (req, res) => {
   res.json({ sent, failed });
 });
 
-/* ---- File media yang diunduh dari WhatsApp ---- */
-app.use('/media', express.static(fileURLToPath(new URL('../media', import.meta.url))));
+/* ---- File media (S3 atau lokal) ---- */
+app.get('/media/:name', async (req, res) => {
+  try {
+    const { buffer, contentType } = await readMedia(req.params.name);
+    res.set('Content-Type', contentType).set('Cache-Control', 'public, max-age=31536000').send(buffer);
+  } catch { res.sendStatus(404); }
+});
 
 /* ---- Serve React build kalau sudah di-build ---- */
 const dist = fileURLToPath(new URL('../web/dist', import.meta.url));

@@ -1,9 +1,7 @@
-import { mkdir, writeFile } from 'node:fs/promises';
 import { cfg } from './config.js';
-import { fileURLToPath } from 'node:url';
+import { storeMedia } from './store.js';
 
 const API = 'https://graph.facebook.com/v20.0';
-const MEDIA_DIR = fileURLToPath(new URL('../media/', import.meta.url));
 
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
   'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'video/mp4': 'mp4', 'application/pdf': 'pdf' };
@@ -42,12 +40,17 @@ export async function listAllTemplates() {
 }
 
 // Bikin template baru → dikirim ke Meta buat approval (status awal PENDING)
-export async function createTemplate({ name, category, language, body, examples = [], footer }) {
+export async function createTemplate({ name, category, language, body, examples = [], footer, buttons = [] }) {
   const WA_TOKEN = cfg('WA_TOKEN'), WA_WABA_ID = cfg('WA_WABA_ID');
   if (!WA_WABA_ID) throw new Error('WA_WABA_ID belum diisi');
   const components = [{ type: 'BODY', text: body }];
   if (examples.length) components[0].example = { body_text: [examples] }; // contoh isi {{1}},{{2}}...
   if (footer) components.push({ type: 'FOOTER', text: footer });
+  const btns = buttons.filter((b) => b.text).map((b) =>
+    b.type === 'URL' ? { type: 'URL', text: b.text, url: b.url }
+      : b.type === 'PHONE_NUMBER' ? { type: 'PHONE_NUMBER', text: b.text, phone_number: b.phone_number }
+        : { type: 'QUICK_REPLY', text: b.text });
+  if (btns.length) components.push({ type: 'BUTTONS', buttons: btns });
   const res = await fetch(`${API}/${WA_WABA_ID}/message_templates`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' },
@@ -76,11 +79,9 @@ export async function sendTemplate(to, name, language, bodyParams = []) {
   return d.messages?.[0]?.id;
 }
 
-// Simpan buffer ke folder media lokal (biar tampil di thread). Return path publik.
-export async function saveMediaFile(buffer, filename) {
-  await mkdir(MEDIA_DIR, { recursive: true });
-  await writeFile(MEDIA_DIR + filename, buffer);
-  return '/media/' + filename;
+// Simpan buffer (S3 / lokal via store.js). Return path publik.
+export async function saveMediaFile(buffer, filename, contentType) {
+  return storeMedia(filename, buffer, contentType);
 }
 
 export async function uploadMedia(buffer, mime, filename) {
@@ -119,10 +120,7 @@ export async function downloadMedia(mediaId, mime) {
   if (!meta.url) throw new Error('media url tak ada: ' + JSON.stringify(meta));
   const buf = Buffer.from(await (await fetch(meta.url, { headers: auth })).arrayBuffer());
   const ext = EXT[mime || meta.mime_type] || 'bin';
-  const file = `${mediaId}.${ext}`;
-  await mkdir(MEDIA_DIR, { recursive: true });
-  await writeFile(MEDIA_DIR + file, buf);
-  return '/media/' + file;
+  return storeMedia(`${mediaId}.${ext}`, buf, mime || meta.mime_type);
 }
 
 export async function sendText(to, body) {

@@ -159,3 +159,6 @@ body { color: #1b2340; }
 .conv .who, .stat-card .val { color: var(--navy); }
 .page-title { color: var(--navy); }
 .navitem.active .ic { filter: none; }
+.btnrow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.btnrow select, .btnrow input { padding: 7px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+.btnrow input { flex: 1; }

@@ -8,6 +8,7 @@ export default function Templates() {
   const [list, setList] = useState(null);
   const [f, setF] = useState({ name: '', category: 'UTILITY', language: 'id', body: '', footer: '' });
   const [examples, setExamples] = useState([]);
+  const [buttons, setButtons] = useState([]);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -21,12 +22,12 @@ export default function Templates() {
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true); setMsg(null);
-    const res = await post('/templates', { ...f, examples });
+    const res = await post('/templates', { ...f, examples, buttons });
     const d = await res.json();
     setBusy(false);
     if (!res.ok) return setMsg({ err: d.error });
     setMsg({ ok: 'Template dikirim ke Meta — status PENDING, tunggu approval.' });
-    setF({ name: '', category: 'UTILITY', language: 'id', body: '', footer: '' }); setExamples([]);
+    setF({ name: '', category: 'UTILITY', language: 'id', body: '', footer: '' }); setExamples([]); setButtons([]);
     load();
   };
 
@@ -56,6 +57,24 @@ export default function Templates() {
           ))}
           <div className="field"><label>Footer (opsional)</label>
             <input value={f.footer} onChange={(e) => setF({ ...f, footer: e.target.value })} placeholder="PalComTech" /></div>
+
+          <div className="field">
+            <label>Tombol (opsional, maks 3)</label>
+            {buttons.map((b, i) => (
+              <div key={i} className="btnrow">
+                <select value={b.type} onChange={(e) => setButtons(buttons.map((x, j) => j === i ? { ...x, type: e.target.value } : x))}>
+                  <option value="QUICK_REPLY">Balas cepat</option>
+                  <option value="URL">Link</option>
+                  <option value="PHONE_NUMBER">Telepon</option>
+                </select>
+                <input placeholder="Teks tombol" value={b.text} onChange={(e) => setButtons(buttons.map((x, j) => j === i ? { ...x, text: e.target.value } : x))} />
+                {b.type === 'URL' && <input placeholder="https://…" value={b.url || ''} onChange={(e) => setButtons(buttons.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} />}
+                {b.type === 'PHONE_NUMBER' && <input placeholder="+62…" value={b.phone_number || ''} onChange={(e) => setButtons(buttons.map((x, j) => j === i ? { ...x, phone_number: e.target.value } : x))} />}
+                <button type="button" className="link" onClick={() => setButtons(buttons.filter((_, j) => j !== i))}>×</button>
+              </div>
+            ))}
+            {buttons.length < 3 && <button type="button" className="link" onClick={() => setButtons([...buttons, { type: 'QUICK_REPLY', text: '' }])}>+ tambah tombol</button>}
+          </div>
           <div className="row">
             <button disabled={busy || !f.name || !f.body}>{busy ? 'Mengirim…' : 'Buat template'}</button>
             {msg?.ok && <span className="saved">✓ {msg.ok}</span>}
