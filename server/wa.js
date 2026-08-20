@@ -19,8 +19,9 @@ export async function listTemplates() {
   // sederhanakan: nama, bahasa, jumlah param di body
   return (d.data || []).filter((t) => t.status === 'APPROVED').map((t) => {
     const body = t.components?.find((c) => c.type === 'BODY');
+    const header = t.components?.find((c) => c.type === 'HEADER');
     const params = (body?.text?.match(/\{\{\d+\}\}/g) || []).length;
-    return { name: t.name, language: t.language, text: body?.text || '', params };
+    return { name: t.name, language: t.language, text: body?.text || '', params, headerType: header?.format || null };
   });
 }
 
@@ -79,17 +80,17 @@ export async function createTemplate({ name, category, language, body, examples 
   return d;
 }
 
-export async function sendTemplate(to, name, language, bodyParams = []) {
+export async function sendTemplate(to, name, language, bodyParams = [], headerImageId) {
   const WA_TOKEN = cfg('WA_TOKEN'), WA_PHONE_ID = cfg('WA_PHONE_ID');
-  const components = bodyParams.length
-    ? [{ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) }]
-    : undefined;
+  const components = [];
+  if (headerImageId) components.push({ type: 'header', parameters: [{ type: 'image', image: { id: headerImageId } }] });
+  if (bodyParams.length) components.push({ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) });
   const res = await fetch(`${API}/${WA_PHONE_ID}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       messaging_product: 'whatsapp', to, type: 'template',
-      template: { name, language: { code: language }, ...(components && { components }) },
+      template: { name, language: { code: language }, ...(components.length && { components }) },
     }),
   });
   const d = await res.json();

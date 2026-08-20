@@ -6,16 +6,24 @@ export default function SendTemplate({ waId, onClose, onSent }) {
   const [tpls, setTpls] = useState(null);
   const [sel, setSel] = useState(null);
   const [params, setParams] = useState([]);
+  const [hFile, setHFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => { fetch('/api/templates').then((r) => r.json()).then((d) => setTpls(d.error ? [] : d)); }, []);
-  const pick = (t) => { setSel(t); setParams(Array(t.params).fill('')); };
+  const pick = (t) => { setSel(t); setParams(Array(t.params).fill('')); setHFile(null); };
   const preview = sel ? params.reduce((s, p, i) => s.replaceAll(`{{${i + 1}}}`, p || `{{${i + 1}}}`), sel.text) : '';
+  const needImg = sel?.headerType === 'IMAGE';
 
   const send = async () => {
+    if (needImg && !hFile) return setErr('Template ini pakai header gambar — pilih gambar dulu.');
     setBusy(true); setErr('');
-    const res = await post('/send-template', { wa_id: waId, name: sel.name, language: sel.language, params, preview });
+    let headerMedia;
+    if (needImg && hFile) {
+      const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result.split(',')[1]); r.readAsDataURL(hFile); });
+      headerMedia = { mime: hFile.type, filename: hFile.name, data };
+    }
+    const res = await post('/send-template', { wa_id: waId, name: sel.name, language: sel.language, params, preview, headerMedia });
     const d = await res.json();
     setBusy(false);
     if (!res.ok) return setErr(d.error);
@@ -35,6 +43,10 @@ export default function SendTemplate({ waId, onClose, onSent }) {
               <option value="">— pilih —</option>
               {tpls.map((t) => <option key={t.name + t.language} value={t.name}>{t.name} ({t.language})</option>)}
             </select>
+            {needImg && (<>
+              <label>Gambar header</label>
+              <input type="file" accept="image/*" onChange={(e) => setHFile(e.target.files[0])} />
+            </>)}
             {sel && params.map((p, i) => (
               <input key={i} placeholder={`Isi {{${i + 1}}}`} value={p}
                 onChange={(e) => setParams(params.map((x, j) => (j === i ? e.target.value : x)))} />

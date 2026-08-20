@@ -154,10 +154,16 @@ app.post('/api/templates', requireAdmin, async (req, res) => {
 
 // Kirim template ke satu kontak (buat buka window 24 jam / re-engage)
 app.post('/api/send-template', async (req, res) => {
-  const { wa_id, name, language, params = [], preview } = req.body;
+  const { wa_id, name, language, params = [], preview, headerMedia } = req.body;
   if (!wa_id || !name || !language) return res.status(400).json({ error: 'wa_id, name, language wajib' });
   try {
-    const waMsgId = await sendTemplate(wa_id, name, language, params);
+    let headerImageId;
+    if (headerMedia?.data) {
+      const buf = Buffer.from(headerMedia.data, 'base64');
+      headerImageId = await uploadMedia(buf, headerMedia.mime, headerMedia.filename);
+    }
+    await upsertContact(wa_id, null); // pastikan kontak tersimpan walau dia belum pernah chat
+    const waMsgId = await sendTemplate(wa_id, name, language, params, headerImageId);
     const body = preview || `[template: ${name}]`;
     const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent' });
     const message = { id, direction: 'out', body, type: 'text', status: 'sent', created_at: Date.now() };

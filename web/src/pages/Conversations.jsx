@@ -99,6 +99,10 @@ export default function Conversations({ me, active, setActive }) {
 
       {active ? (
         <div className="thread">
+          <div className="thread-head">
+            <b>{convs.find((c) => c.wa_id === active)?.name || active}</b>
+            <span className="num">{active}</span>
+          </div>
           <div className="msgs">
             {msgs.map((m) => (
               <div key={m.id} className={'bubble ' + m.direction}>
