@@ -26,6 +26,38 @@ export async function listTemplates() {
   });
 }
 
+// Semua template + statusnya (buat halaman kelola)
+export async function listAllTemplates() {
+  const WA_TOKEN = cfg('WA_TOKEN'), WA_WABA_ID = cfg('WA_WABA_ID');
+  if (!WA_WABA_ID) throw new Error('WA_WABA_ID belum diisi');
+  const res = await fetch(`${API}/${WA_WABA_ID}/message_templates?limit=100`, {
+    headers: { Authorization: `Bearer ${WA_TOKEN}` },
+  });
+  const d = await res.json();
+  if (!res.ok) throw new Error(d?.error?.message || 'gagal ambil template');
+  return (d.data || []).map((t) => ({
+    name: t.name, language: t.language, category: t.category, status: t.status,
+    body: t.components?.find((c) => c.type === 'BODY')?.text || '',
+  }));
+}
+
+// Bikin template baru → dikirim ke Meta buat approval (status awal PENDING)
+export async function createTemplate({ name, category, language, body, examples = [], footer }) {
+  const WA_TOKEN = cfg('WA_TOKEN'), WA_WABA_ID = cfg('WA_WABA_ID');
+  if (!WA_WABA_ID) throw new Error('WA_WABA_ID belum diisi');
+  const components = [{ type: 'BODY', text: body }];
+  if (examples.length) components[0].example = { body_text: [examples] }; // contoh isi {{1}},{{2}}...
+  if (footer) components.push({ type: 'FOOTER', text: footer });
+  const res = await fetch(`${API}/${WA_WABA_ID}/message_templates`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, category, language, components }),
+  });
+  const d = await res.json();
+  if (!res.ok) throw new Error(d?.error?.error_user_msg || d?.error?.message || 'gagal buat template');
+  return d;
+}
+
 export async function sendTemplate(to, name, language, bodyParams = []) {
   const WA_TOKEN = cfg('WA_TOKEN'), WA_PHONE_ID = cfg('WA_PHONE_ID');
   const components = bodyParams.length

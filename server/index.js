@@ -5,7 +5,7 @@ import {
   upsertContact, insertMessage, updateStatus,
   listConversations, listMessages, getContact, updateContact, initDb, stats,
 } from './db.js';
-import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate } from './wa.js';
+import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
 import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 
@@ -128,6 +128,16 @@ app.patch('/api/settings', requireAdmin, async (req, res) => {
 
 app.get('/api/templates', async (_req, res) => {
   try { res.json(await listTemplates()); }
+  catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+// Kelola template (admin): lihat semua status + bikin baru
+app.get('/api/templates/all', requireAdmin, async (_req, res) => {
+  try { res.json(await listAllTemplates()); }
+  catch (e) { res.status(502).json({ error: e.message }); }
+});
+app.post('/api/templates', requireAdmin, async (req, res) => {
+  try { res.json(await createTemplate(req.body)); }
   catch (e) { res.status(502).json({ error: e.message }); }
 });
 

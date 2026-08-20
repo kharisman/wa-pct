@@ -121,3 +121,10 @@ body { margin: 0; font: 14px/1.4 system-ui, sans-serif; color: #111; }
 .tbl td { padding: 11px 14px; border-bottom: 1px solid #f2f2f2; }
 .tbl .mono { font-family: ui-monospace, monospace; font-size: 13px; color: #555; }
 .tbl tr:hover td { background: #f9fafb; }
+
+/* Template page */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field textarea { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 7px; font: inherit; resize: vertical; }
+.tstat { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.tbody { color: #666; font-size: 13px; max-width: 320px; white-space: pre-wrap; }
+code { background: #f0f0f0; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
