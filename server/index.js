@@ -6,7 +6,8 @@ import {
   listConversations, listMessages, getContact, updateContact, initDb,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate } from './wa.js';
-import { mountAuth, requireAuth, initAuth } from './auth.js';
+import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
+import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
@@ -30,7 +31,7 @@ app.get('/api/stream', requireAuth, (req, res) => {
 /* ---- Webhook verify (Meta manggil sekali saat setup) ---- */
 app.get('/webhook', (req, res) => {
   const { 'hub.mode': mode, 'hub.verify_token': token, 'hub.challenge': challenge } = req.query;
-  if (mode === 'subscribe' && token === process.env.WA_VERIFY_TOKEN) return res.send(challenge);
+  if (mode === 'subscribe' && token === cfg('WA_VERIFY_TOKEN')) return res.send(challenge);
   res.sendStatus(403);
 });
 
@@ -117,6 +118,13 @@ app.post('/api/send-media', async (req, res) => {
   }
 });
 
+// Setting koneksi WA (admin) — ubah key tanpa sentuh .env
+app.get('/api/settings', requireAdmin, (_req, res) => res.json(getConfigView()));
+app.patch('/api/settings', requireAdmin, async (req, res) => {
+  await setConfig(req.body);
+  res.json(getConfigView());
+});
+
 app.get('/api/templates', async (_req, res) => {
   try { res.json(await listTemplates()); }
   catch (e) { res.status(502).json({ error: e.message }); }
@@ -154,4 +162,5 @@ if (existsSync(dist)) {
 const port = process.env.PORT || 3000;
 await initDb();
 await initAuth();
+await loadConfig();
 app.listen(port, () => console.log(`WA CRM (Postgres/Supabase) di http://localhost:${port}`));

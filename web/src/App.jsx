@@ -4,13 +4,15 @@ const api = (path, opts) => fetch('/api' + path, opts).then((r) => r.json());
 
 export default function App() {
   const [me, setMe] = useState(undefined); // undefined=loading, null=belum login
+  const [view, setView] = useState('inbox'); // inbox | admin
   useEffect(() => {
     fetch('/api/me').then((r) => (r.ok ? r.json() : null)).then(setMe);
   }, []);
 
   if (me === undefined) return <div className="empty">Memuat…</div>;
   if (!me) return <Login onLogin={setMe} />;
-  return <Inbox me={me} onLogout={() => setMe(null)} />;
+  if (view === 'admin') return <Admin me={me} onBack={() => setView('inbox')} />;
+  return <Inbox me={me} onLogout={() => { setMe(null); setView('inbox'); }} onAdmin={() => setView('admin')} />;
 }
 
 function Login({ onLogin }) {
@@ -40,12 +42,11 @@ function Login({ onLogin }) {
   );
 }
 
-function Inbox({ me, onLogout }) {
+function Inbox({ me, onLogout, onAdmin }) {
   const [convs, setConvs] = useState([]);
   const [users, setUsers] = useState([]);
   const [filter, setFilter] = useState('all'); // all | mine | unassigned
   const [showBc, setShowBc] = useState(false);
-  const [showUsers, setShowUsers] = useState(false);
   const loadUsers = () => api('/users').then(setUsers);
   const [active, setActive] = useState(null);
   const [msgs, setMsgs] = useState([]);
@@ -136,7 +137,7 @@ function Inbox({ me, onLogout }) {
         <div className="topbar">
           <span>💬 {me.name}</span>
           <span>
-            {me.is_admin ? <button className="link" onClick={() => setShowUsers(true)}>👤</button> : null}
+            {me.is_admin ? <button className="link" title="Admin" onClick={onAdmin}>⚙️</button> : null}
             <button className="link" onClick={() => setShowBc(true)}>📢</button>
             <button className="link" onClick={async () => { await fetch('/api/logout', { method: 'POST' }); onLogout(); }}>keluar</button>
           </span>
@@ -186,52 +187,100 @@ function Inbox({ me, onLogout }) {
 
       {active && <ContactPanel key={active} waId={active} users={users} onChange={loadConvs} />}
       {showBc && <Broadcast recipients={shown} onClose={() => setShowBc(false)} />}
-      {showUsers && <Users me={me} users={users} reload={loadUsers} onClose={() => setShowUsers(false)} />}
     </div>
   );
 }
 
-function Users({ me, users, reload, onClose }) {
-  const [f, setF] = useState({ name: '', email: '', password: '' });
-  const [err, setErr] = useState('');
-  const add = async (e) => {
+// Halaman Admin terpisah: koneksi WhatsApp (key) + kelola pengguna
+function Admin({ me, onBack }) {
+  const [cfg, setCfg] = useState(null);
+  const [form, setForm] = useState({});
+  const [savedCfg, setSavedCfg] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [nu, setNu] = useState({ name: '', email: '', password: '' });
+  const [uerr, setUerr] = useState('');
+
+  const loadUsers = () => api('/users').then(setUsers);
+  useEffect(() => {
+    fetch('/api/settings').then((r) => r.json()).then(setCfg);
+    loadUsers();
+  }, []);
+
+  const saveCfg = async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/settings', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+    });
+    setCfg(await res.json()); setForm({});
+    setSavedCfg(true); setTimeout(() => setSavedCfg(false), 1500);
+  };
+
+  const addUser = async (e) => {
     e.preventDefault();
     const res = await fetch('/api/users', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nu),
     });
     const d = await res.json();
-    if (!res.ok) return setErr(d.error);
-    setF({ name: '', email: '', password: '' }); setErr(''); reload();
+    if (!res.ok) return setUerr(d.error);
+    setNu({ name: '', email: '', password: '' }); setUerr(''); loadUsers();
   };
-  const del = async (email) => {
+  const delUser = async (email) => {
     if (!confirm('Hapus ' + email + '?')) return;
     await fetch('/api/users/' + encodeURIComponent(email), { method: 'DELETE' });
-    reload();
+    loadUsers();
   };
+
+  const F = (k, label, hint) => (
+    <div className="field">
+      <label>{label}</label>
+      <input placeholder={cfg?.[k] || ''} value={form[k] ?? ''} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+      {hint && <small>{hint}</small>}
+    </div>
+  );
+
   return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>👤 Kelola CS</h2>
+    <div className="page">
+      <div className="page-head">
+        <button className="link" onClick={onBack}>← Inbox</button>
+        <h1>⚙️ Admin</h1>
+        <span />
+      </div>
+
+      <section className="card">
+        <h2>Koneksi WhatsApp</h2>
+        <p className="muted">Ubah kredensial di sini — tersimpan di database, tak perlu edit file server.</p>
+        {cfg === null ? <p>Memuat…</p> : (
+          <form onSubmit={saveCfg}>
+            {F('WA_TOKEN', 'Access Token', `sekarang: ${cfg.WA_TOKEN || '(kosong)'} — isi hanya kalau mau ganti`)}
+            {F('WA_PHONE_ID', 'Phone Number ID')}
+            {F('WA_WABA_ID', 'WhatsApp Business Account ID')}
+            {F('WA_VERIFY_TOKEN', 'Verify Token (webhook)')}
+            <div className="row">
+              <button disabled={Object.keys(form).length === 0}>Simpan</button>
+              {savedCfg && <span className="saved">✓ tersimpan</span>}
+            </div>
+          </form>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>Pengguna (CS / Office)</h2>
         <div className="userlist">
           {users.map((u) => (
             <div key={u.email} className="userrow">
               <span>{u.name} <small>{u.email}</small>{u.is_admin ? ' 👑' : ''}</span>
-              {u.email !== me.email && <button className="link" onClick={() => del(u.email)}>hapus</button>}
+              {u.email !== me.email && <button className="link" onClick={() => delUser(u.email)}>hapus</button>}
             </div>
           ))}
         </div>
-        <form onSubmit={add} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <label>Tambah CS</label>
-          <input placeholder="Nama" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-          <input placeholder="Email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
-          <input placeholder="Password" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
-          {err && <div className="err" style={{ color: '#c0392b', fontSize: 12 }}>{err}</div>}
-          <div className="modal-actions">
-            <button className="link" type="button" onClick={onClose}>Tutup</button>
-            <button>Tambah</button>
-          </div>
+        <form onSubmit={addUser} className="addrow">
+          <input placeholder="Nama" value={nu.name} onChange={(e) => setNu({ ...nu, name: e.target.value })} />
+          <input placeholder="Email" value={nu.email} onChange={(e) => setNu({ ...nu, email: e.target.value })} />
+          <input placeholder="Password" type="password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} />
+          <button>Tambah</button>
         </form>
-      </div>
+        {uerr && <div className="err">{uerr}</div>}
+      </section>
     </div>
   );
 }

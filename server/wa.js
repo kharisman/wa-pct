@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { cfg } from './config.js';
 import { fileURLToPath } from 'node:url';
 
 const API = 'https://graph.facebook.com/v20.0';
@@ -10,7 +11,7 @@ const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
 // Upload buffer ke WA -> return media id. Lalu kirim sebagai pesan.
 // List approved templates dari WABA.
 export async function listTemplates() {
-  const { WA_TOKEN, WA_WABA_ID } = process.env;
+  const WA_TOKEN = cfg('WA_TOKEN'), WA_WABA_ID = cfg('WA_WABA_ID');
   if (!WA_WABA_ID) throw new Error('WA_WABA_ID belum diisi');
   const res = await fetch(`${API}/${WA_WABA_ID}/message_templates?limit=100`, {
     headers: { Authorization: `Bearer ${WA_TOKEN}` },
@@ -26,7 +27,7 @@ export async function listTemplates() {
 }
 
 export async function sendTemplate(to, name, language, bodyParams = []) {
-  const { WA_TOKEN, WA_PHONE_ID } = process.env;
+  const WA_TOKEN = cfg('WA_TOKEN'), WA_PHONE_ID = cfg('WA_PHONE_ID');
   const components = bodyParams.length
     ? [{ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) }]
     : undefined;
@@ -51,7 +52,7 @@ export async function saveMediaFile(buffer, filename) {
 }
 
 export async function uploadMedia(buffer, mime, filename) {
-  const { WA_TOKEN, WA_PHONE_ID } = process.env;
+  const WA_TOKEN = cfg('WA_TOKEN'), WA_PHONE_ID = cfg('WA_PHONE_ID');
   const form = new FormData();
   form.append('messaging_product', 'whatsapp');
   form.append('file', new Blob([buffer], { type: mime }), filename || 'file');
@@ -64,7 +65,7 @@ export async function uploadMedia(buffer, mime, filename) {
 }
 
 export async function sendMedia(to, type, mediaId, { caption, filename } = {}) {
-  const { WA_TOKEN, WA_PHONE_ID } = process.env;
+  const WA_TOKEN = cfg('WA_TOKEN'), WA_PHONE_ID = cfg('WA_PHONE_ID');
   const obj = { id: mediaId };
   if (caption && type !== 'audio') obj.caption = caption;
   if (type === 'document' && filename) obj.filename = filename;
@@ -80,7 +81,7 @@ export async function sendMedia(to, type, mediaId, { caption, filename } = {}) {
 
 // Download media Cloud API: id -> URL sementara -> file. Return path publik `/media/xxx`.
 export async function downloadMedia(mediaId, mime) {
-  const { WA_TOKEN } = process.env;
+  const WA_TOKEN = cfg('WA_TOKEN');
   const auth = { Authorization: `Bearer ${WA_TOKEN}` };
   const meta = await (await fetch(`${API}/${mediaId}`, { headers: auth })).json();
   if (!meta.url) throw new Error('media url tak ada: ' + JSON.stringify(meta));
@@ -93,7 +94,7 @@ export async function downloadMedia(mediaId, mime) {
 }
 
 export async function sendText(to, body) {
-  const { WA_TOKEN, WA_PHONE_ID } = process.env;
+  const WA_TOKEN = cfg('WA_TOKEN'), WA_PHONE_ID = cfg('WA_PHONE_ID');
   const res = await fetch(`${API}/${WA_PHONE_ID}/messages`, {
     method: 'POST',
     headers: {
