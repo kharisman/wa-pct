@@ -128,3 +128,34 @@ body { margin: 0; font: 14px/1.4 system-ui, sans-serif; color: #111; }
 .tstat { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
 .tbody { color: #666; font-size: 13px; max-width: 320px; white-space: pre-wrap; }
 code { background: #f0f0f0; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+/* ===== TEMA PalComTech (navy + kuning) — override ===== */
+:root { --navy: #152159; --navy-2: #223072; --gold: #fdc820; --gold-ink: #3a2e05; --page: #eaf4fc; }
+body { color: #1b2340; }
+.content { background: var(--page); }
+
+/* sidebar */
+.sidebar { background: var(--navy); color: #c7d0ee; }
+.sidebar .brand { color: #fff; }
+.navitem { color: #c7d0ee; }
+.navitem:hover { background: rgba(255,255,255,.08); }
+.navitem.active { background: var(--gold); color: var(--gold-ink); font-weight: 700; }
+.side-foot { border-top-color: rgba(255,255,255,.12); }
+.side-foot .who { color: #fff; }
+.side-foot .link { color: #aab6e6; }
+
+/* tombol utama -> kuning teks navy */
+.login button,
+.card button:not(.link),
+.modal-actions button:not(.link),
+.composer button:not(.attach) { background: var(--gold); color: var(--gold-ink); }
+
+/* aksen navy */
+.link { color: var(--navy); }
+.tab.active { color: var(--navy); border-bottom-color: var(--gold); }
+.conv:hover, .conv.active { background: #eef1fb; }
+.chip { background: #e6e9f7; color: var(--navy); }
+.chip button { color: var(--navy); }
+.conv .who, .stat-card .val { color: var(--navy); }
+.page-title { color: var(--navy); }
+.navitem.active .ic { filter: none; }
