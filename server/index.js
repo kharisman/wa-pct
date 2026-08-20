@@ -5,7 +5,7 @@ import {
   upsertContact, insertMessage, updateStatus,
   listConversations, listMessages, getContact, updateContact, initDb, stats,
 } from './db.js';
-import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate } from './wa.js';
+import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
 import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 import { readMedia } from './store.js';
@@ -138,8 +138,32 @@ app.get('/api/templates/all', requireAdmin, async (_req, res) => {
   catch (e) { res.status(502).json({ error: e.message }); }
 });
 app.post('/api/templates', requireAdmin, async (req, res) => {
-  try { res.json(await createTemplate(req.body)); }
-  catch (e) { res.status(502).json({ error: e.message }); }
+  try {
+    let header = req.body.header;
+    // header media: frontend kirim base64 -> upload sample -> handle
+    if (req.body.headerMedia?.data) {
+      const buf = Buffer.from(req.body.headerMedia.data, 'base64');
+      const mime = req.body.headerMedia.mime;
+      const handle = await uploadSampleMedia(buf, mime);
+      const type = mime.startsWith('image/') ? 'IMAGE' : mime.startsWith('video/') ? 'VIDEO' : 'DOCUMENT';
+      header = { type, handle };
+    }
+    res.json(await createTemplate({ ...req.body, header }));
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+// Kirim template ke satu kontak (buat buka window 24 jam / re-engage)
+app.post('/api/send-template', async (req, res) => {
+  const { wa_id, name, language, params = [], preview } = req.body;
+  if (!wa_id || !name || !language) return res.status(400).json({ error: 'wa_id, name, language wajib' });
+  try {
+    const waMsgId = await sendTemplate(wa_id, name, language, params);
+    const body = preview || `[template: ${name}]`;
+    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent' });
+    const message = { id, direction: 'out', body, type: 'text', status: 'sent', created_at: Date.now() };
+    broadcast({ kind: 'message', wa_id, message });
+    res.json(message);
+  } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
 // Broadcast: kirim 1 template ke banyak kontak. params sama untuk semua (personalisasi nyusul).

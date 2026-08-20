@@ -9,6 +9,9 @@ export default function Templates() {
   const [f, setF] = useState({ name: '', category: 'UTILITY', language: 'id', body: '', footer: '' });
   const [examples, setExamples] = useState([]);
   const [buttons, setButtons] = useState([]);
+  const [hType, setHType] = useState('NONE'); // NONE | TEXT | IMAGE
+  const [hText, setHText] = useState('');
+  const [hFile, setHFile] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -22,12 +25,19 @@ export default function Templates() {
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true); setMsg(null);
-    const res = await post('/templates', { ...f, examples, buttons });
+    const payload = { ...f, examples, buttons };
+    if (hType === 'TEXT' && hText) payload.header = { type: 'TEXT', text: hText };
+    if (hType === 'IMAGE' && hFile) {
+      const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result.split(',')[1]); r.readAsDataURL(hFile); });
+      payload.headerMedia = { mime: hFile.type, data };
+    }
+    const res = await post('/templates', payload);
     const d = await res.json();
     setBusy(false);
     if (!res.ok) return setMsg({ err: d.error });
     setMsg({ ok: 'Template dikirim ke Meta — status PENDING, tunggu approval.' });
-    setF({ name: '', category: 'UTILITY', language: 'id', body: '', footer: '' }); setExamples([]); setButtons([]);
+    setF({ name: '', category: 'UTILITY', language: 'id', body: '', footer: '' });
+    setExamples([]); setButtons([]); setHType('NONE'); setHText(''); setHFile(null);
     load();
   };
 
@@ -49,6 +59,17 @@ export default function Templates() {
             <div className="field"><label>Bahasa</label>
               <input value={f.language} onChange={(e) => setF({ ...f, language: e.target.value })} placeholder="id / en_US" /></div>
           </div>
+          <div className="field">
+            <label>Header (opsional)</label>
+            <select value={hType} onChange={(e) => setHType(e.target.value)}>
+              <option value="NONE">Tanpa header</option>
+              <option value="TEXT">Teks</option>
+              <option value="IMAGE">Gambar</option>
+            </select>
+            {hType === 'TEXT' && <input style={{ marginTop: 6, width: '100%' }} placeholder="Judul header" value={hText} onChange={(e) => setHText(e.target.value)} />}
+            {hType === 'IMAGE' && <input style={{ marginTop: 6 }} type="file" accept="image/*" onChange={(e) => setHFile(e.target.files[0])} />}
+          </div>
+
           <div className="field"><label>Isi pesan (Body)</label>
             <textarea value={f.body} rows={4} placeholder="Halo {{1}}, ada promo spesial untukmu!" onChange={(e) => setF({ ...f, body: e.target.value })} /></div>
           {examples.map((ex, i) => (

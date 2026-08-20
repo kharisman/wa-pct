@@ -39,12 +39,30 @@ export async function listAllTemplates() {
   }));
 }
 
+// Upload sample media ke Meta (resumable) -> handle buat HEADER template
+export async function uploadSampleMedia(buffer, mime) {
+  const token = cfg('WA_TOKEN'), appId = cfg('WA_APP_ID');
+  if (!appId) throw new Error('WA_APP_ID belum diisi (Setting) — perlu buat header media');
+  const s = await fetch(`${API}/${appId}/uploads?file_length=${buffer.length}&file_type=${encodeURIComponent(mime)}`,
+    { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  const sd = await s.json();
+  if (!s.ok) throw new Error(sd?.error?.message || 'gagal buka sesi upload');
+  const u = await fetch(`${API}/${sd.id}`, { method: 'POST', headers: { Authorization: `OAuth ${token}`, file_offset: '0' }, body: buffer });
+  const ud = await u.json();
+  if (!u.ok || !ud.h) throw new Error(ud?.error?.message || 'gagal upload sample');
+  return ud.h;
+}
+
 // Bikin template baru → dikirim ke Meta buat approval (status awal PENDING)
-export async function createTemplate({ name, category, language, body, examples = [], footer, buttons = [] }) {
+export async function createTemplate({ name, category, language, body, examples = [], footer, buttons = [], header }) {
   const WA_TOKEN = cfg('WA_TOKEN'), WA_WABA_ID = cfg('WA_WABA_ID');
   if (!WA_WABA_ID) throw new Error('WA_WABA_ID belum diisi');
-  const components = [{ type: 'BODY', text: body }];
-  if (examples.length) components[0].example = { body_text: [examples] }; // contoh isi {{1}},{{2}}...
+  const components = [];
+  if (header?.type === 'TEXT' && header.text) components.push({ type: 'HEADER', format: 'TEXT', text: header.text });
+  else if (header?.handle) components.push({ type: 'HEADER', format: header.type, example: { header_handle: [header.handle] } });
+  const bodyComp = { type: 'BODY', text: body };
+  if (examples.length) bodyComp.example = { body_text: [examples] }; // contoh isi {{1}},{{2}}...
+  components.push(bodyComp);
   if (footer) components.push({ type: 'FOOTER', text: footer });
   const btns = buttons.filter((b) => b.text).map((b) =>
     b.type === 'URL' ? { type: 'URL', text: b.text, url: b.url }

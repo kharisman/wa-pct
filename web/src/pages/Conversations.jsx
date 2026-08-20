@@ -3,12 +3,14 @@ import { api, post } from '../api.js';
 import Media from '../components/Media.jsx';
 import ContactPanel from '../components/ContactPanel.jsx';
 import Broadcast from '../components/Broadcast.jsx';
+import SendTemplate from '../components/SendTemplate.jsx';
 
 export default function Conversations({ me, active, setActive }) {
   const [convs, setConvs] = useState([]);
   const [users, setUsers] = useState([]);
   const [filter, setFilter] = useState('all');
   const [showBc, setShowBc] = useState(false);
+  const [showTpl, setShowTpl] = useState(false);
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -113,6 +115,7 @@ export default function Conversations({ me, active, setActive }) {
           <form className="composer" onSubmit={send}>
             <input type="file" ref={fileRef} style={{ display: 'none' }} onChange={(e) => sendFile(e.target.files[0])} />
             <button type="button" className="attach" title="Lampirkan file" disabled={sending} onClick={() => fileRef.current?.click()}>📎</button>
+            <button type="button" className="attach" title="Kirim template" onClick={() => setShowTpl(true)}>📋</button>
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ketik balasan…" />
             <button disabled={sending}>Kirim</button>
           </form>
@@ -123,6 +126,7 @@ export default function Conversations({ me, active, setActive }) {
 
       {active && <ContactPanel key={active} waId={active} users={users} onChange={loadConvs} />}
       {showBc && <Broadcast recipients={shown} onClose={() => setShowBc(false)} />}
+      {showTpl && active && <SendTemplate waId={active} onClose={() => setShowTpl(false)} onSent={loadConvs} />}
     </div>
   );
 }
