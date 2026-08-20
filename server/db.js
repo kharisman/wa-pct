@@ -1,84 +1,98 @@
-import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath } from 'node:url';
+import pg from 'pg';
 
-const path = fileURLToPath(new URL('../data.db', import.meta.url));
-export const db = new DatabaseSync(path);
+try { process.loadEnvFile(); } catch { /* pakai env asli */ }
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS contacts (
-    wa_id      TEXT PRIMARY KEY,
-    name       TEXT,
-    created_at INTEGER NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS messages (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    wa_id      TEXT NOT NULL,
-    direction  TEXT NOT NULL,          -- 'in' | 'out'
-    type       TEXT NOT NULL DEFAULT 'text',
-    body       TEXT,
-    wa_msg_id  TEXT,                   -- id pesan dari WhatsApp (untuk status/dedup)
-    status     TEXT,                   -- sent|delivered|read|failed
-    created_at INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_msg_wa ON messages(wa_id, id);
-`);
+// int8/bigint -> number (biar created_at & id balik sebagai angka, bukan string)
+pg.types.setTypeParser(20, (v) => (v === null ? null : parseInt(v, 10)));
 
-// Migrasi kolom CRM (SQLite tak punya ADD COLUMN IF NOT EXISTS)
-const cols = new Set(db.prepare(`PRAGMA table_info(contacts)`).all().map((c) => c.name));
-for (const [name, def] of [['labels', "TEXT DEFAULT '[]'"], ['notes', 'TEXT'], ['assignee', 'TEXT']]) {
-  if (!cols.has(name)) db.exec(`ALTER TABLE contacts ADD COLUMN ${name} ${def}`);
+const { DATABASE_URL } = process.env;
+if (!DATABASE_URL) throw new Error('DATABASE_URL belum diset (connection string Supabase)');
+
+export const pool = new pg.Pool({
+  connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // Supabase pakai SSL
+  max: 5,
+});
+
+export const q = (text, params) => pool.query(text, params);
+
+export async function initDb() {
+  await q(`
+    CREATE TABLE IF NOT EXISTS contacts (
+      wa_id      text PRIMARY KEY,
+      name       text,
+      labels     text DEFAULT '[]',
+      notes      text,
+      assignee   text,
+      created_at bigint NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS messages (
+      id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      wa_id      text NOT NULL,
+      direction  text NOT NULL,
+      type       text NOT NULL DEFAULT 'text',
+      body       text,
+      wa_msg_id  text,
+      status     text,
+      media_url  text,
+      created_at bigint NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_msg_wa ON messages(wa_id, id);
+  `);
 }
-const mcols = new Set(db.prepare(`PRAGMA table_info(messages)`).all().map((c) => c.name));
-if (!mcols.has('media_url')) db.exec(`ALTER TABLE messages ADD COLUMN media_url TEXT`);
 
 const now = () => Date.now();
 
-export function upsertContact(waId, name) {
-  db.prepare(
-    `INSERT INTO contacts(wa_id, name, created_at) VALUES(?,?,?)
-     ON CONFLICT(wa_id) DO UPDATE SET name=COALESCE(excluded.name, name)`
-  ).run(waId, name ?? null, now());
+export async function upsertContact(waId, name) {
+  await q(
+    `INSERT INTO contacts(wa_id, name, created_at) VALUES($1,$2,$3)
+     ON CONFLICT(wa_id) DO UPDATE SET name = COALESCE(EXCLUDED.name, contacts.name)`,
+    [waId, name ?? null, now()]
+  );
 }
 
-export function insertMessage({ waId, direction, type = 'text', body, waMsgId, status, mediaUrl }) {
+export async function insertMessage({ waId, direction, type = 'text', body, waMsgId, status, mediaUrl }) {
   // ponytail: dedup inbound by wa_msg_id — Meta redelivers webhooks on retry
   if (waMsgId) {
-    const dup = db.prepare('SELECT id FROM messages WHERE wa_msg_id=?').get(waMsgId);
-    if (dup) return dup.id;
+    const dup = await q('SELECT id FROM messages WHERE wa_msg_id=$1', [waMsgId]);
+    if (dup.rows[0]) return dup.rows[0].id;
   }
-  return db.prepare(
+  const r = await q(
     `INSERT INTO messages(wa_id,direction,type,body,wa_msg_id,status,media_url,created_at)
-     VALUES(?,?,?,?,?,?,?,?)`
-  ).run(waId, direction, type, body ?? null, waMsgId ?? null, status ?? null, mediaUrl ?? null, now()).lastInsertRowid;
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    [waId, direction, type, body ?? null, waMsgId ?? null, status ?? null, mediaUrl ?? null, now()]
+  );
+  return r.rows[0].id;
 }
 
-export function updateStatus(waMsgId, status) {
-  db.prepare('UPDATE messages SET status=? WHERE wa_msg_id=?').run(status, waMsgId);
+export async function updateStatus(waMsgId, status) {
+  await q('UPDATE messages SET status=$1 WHERE wa_msg_id=$2', [status, waMsgId]);
 }
 
-export const getContact = (waId) =>
-  db.prepare('SELECT wa_id, name, labels, notes, assignee, created_at FROM contacts WHERE wa_id=?').get(waId);
+export const getContact = async (waId) =>
+  (await q('SELECT wa_id, name, labels, notes, assignee, created_at FROM contacts WHERE wa_id=$1', [waId])).rows[0];
 
-export function updateContact(waId, { name, labels, notes, assignee }) {
-  db.prepare(
+export async function updateContact(waId, { name, labels, notes, assignee }) {
+  await q(
     `UPDATE contacts SET
-       name     = COALESCE(?, name),
-       labels   = COALESCE(?, labels),
-       notes    = COALESCE(?, notes),
-       assignee = COALESCE(?, assignee)
-     WHERE wa_id=?`
-  ).run(name ?? null, labels ? JSON.stringify(labels) : null, notes ?? null,
-        assignee === undefined ? null : assignee, waId);
+       name     = COALESCE($1, name),
+       labels   = COALESCE($2, labels),
+       notes    = COALESCE($3, notes),
+       assignee = COALESCE($4, assignee)
+     WHERE wa_id=$5`,
+    [name ?? null, labels ? JSON.stringify(labels) : null, notes ?? null,
+     assignee === undefined ? null : assignee, waId]
+  );
   return getContact(waId);
 }
 
-export const listConversations = () =>
-  db.prepare(`
+export const listConversations = async () =>
+  (await q(`
     SELECT c.wa_id, c.name, c.labels, c.assignee,
            (SELECT body FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_body,
            (SELECT created_at FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_at
-    FROM contacts c ORDER BY last_at DESC
-  `).all();
+    FROM contacts c ORDER BY last_at DESC NULLS LAST
+  `)).rows;
 
-export const listMessages = (waId) =>
-  db.prepare('SELECT * FROM messages WHERE wa_id=? ORDER BY id ASC').all(waId);
+export const listMessages = async (waId) =>
+  (await q('SELECT * FROM messages WHERE wa_id=$1 ORDER BY id ASC', [waId])).rows;

@@ -3,10 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import {
   upsertContact, insertMessage, updateStatus,
-  listConversations, listMessages, getContact, updateContact,
+  listConversations, listMessages, getContact, updateContact, initDb,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate } from './wa.js';
-import { mountAuth, requireAuth } from './auth.js';
+import { mountAuth, requireAuth, initAuth } from './auth.js';
 
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
@@ -43,7 +43,7 @@ app.post('/webhook', (req, res) => {
         const v = change.value ?? {};
         const profileName = v.contacts?.[0]?.profile?.name;
         for (const m of v.messages ?? []) {
-          upsertContact(m.from, profileName);
+          await upsertContact(m.from, profileName);
           const media = m[m.type]; // image/audio/video/document/sticker: {id, mime_type, caption?, filename?}
           let body = m.text?.body ?? media?.caption ?? media?.filename ?? `[${m.type}]`;
           let mediaUrl = null;
@@ -51,12 +51,12 @@ app.post('/webhook', (req, res) => {
             try { mediaUrl = await downloadMedia(media.id, media.mime_type); }
             catch (e) { console.error('media gagal', e.message); body += ' (media gagal diunduh)'; }
           }
-          const id = insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl });
+          const id = await insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl });
           broadcast({ kind: 'message', wa_id: m.from, message: { id, direction: 'in', body, type: m.type, media_url: mediaUrl, created_at: Date.now() } });
         }
         for (const s of v.statuses ?? []) {
           if (s.status === 'failed') console.error('SEND FAILED:', JSON.stringify(s.errors));
-          updateStatus(s.id, s.status);
+          await updateStatus(s.id, s.status);
           broadcast({ kind: 'status', wa_msg_id: s.id, status: s.status });
         }
       }
@@ -67,12 +67,12 @@ app.post('/webhook', (req, res) => {
 /* ---- API buat frontend ---- */
 app.use('/api', requireAuth); // semua /api di bawah ini butuh login
 
-app.get('/api/conversations', (_req, res) => res.json(listConversations()));
-app.get('/api/messages/:waId', (req, res) => res.json(listMessages(req.params.waId)));
+app.get('/api/conversations', async (_req, res) => res.json(await listConversations()));
+app.get('/api/messages/:waId', async (req, res) => res.json(await listMessages(req.params.waId)));
 
-app.get('/api/contact/:waId', (req, res) => res.json(getContact(req.params.waId) || {}));
-app.patch('/api/contact/:waId', (req, res) => {
-  const c = updateContact(req.params.waId, req.body);
+app.get('/api/contact/:waId', async (req, res) => res.json((await getContact(req.params.waId)) || {}));
+app.patch('/api/contact/:waId', async (req, res) => {
+  const c = await updateContact(req.params.waId, req.body);
   broadcast({ kind: 'contact', wa_id: req.params.waId });
   res.json(c);
 });
@@ -84,7 +84,7 @@ app.post('/api/send', async (req, res) => {
     // ponytail: hanya jalan dalam window 24 jam sejak pesan terakhir user.
     // Di luar itu WA wajib pakai approved template — tambah saat butuh outbound.
     const waMsgId = await sendText(wa_id, body);
-    const id = insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent' });
+    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent' });
     const message = { id, direction: 'out', body, type: 'text', status: 'sent', created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
     res.json(message);
@@ -108,7 +108,7 @@ app.post('/api/send-media', async (req, res) => {
     const ext = (filename?.split('.').pop() || mime.split('/')[1] || 'bin').slice(0, 5);
     const mediaUrl = await saveMediaFile(buf, `out-${waMsgId}.${ext}`);
     const body = caption || filename || `[${type}]`;
-    const id = insertMessage({ waId: wa_id, direction: 'out', type, body, waMsgId, status: 'sent', mediaUrl });
+    const id = await insertMessage({ waId: wa_id, direction: 'out', type, body, waMsgId, status: 'sent', mediaUrl });
     const message = { id, direction: 'out', type, body, media_url: mediaUrl, status: 'sent', created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
     res.json(message);
@@ -133,7 +133,7 @@ app.post('/api/broadcast', async (req, res) => {
   for (const wa_id of wa_ids) {
     try {
       const waMsgId = await sendTemplate(wa_id, name, language, params);
-      const id = insertMessage({ waId: wa_id, direction: 'out', body: preview, waMsgId, status: 'sent' });
+      const id = await insertMessage({ waId: wa_id, direction: 'out', body: preview, waMsgId, status: 'sent' });
       broadcast({ kind: 'message', wa_id, message: { id, direction: 'out', body: preview, type: 'text', status: 'sent', created_at: Date.now() } });
       sent++;
     } catch (e) { failed.push({ wa_id, error: e.message }); }
@@ -152,4 +152,6 @@ if (existsSync(dist)) {
 }
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`WA CRM di http://localhost:${port}`));
+await initDb();
+await initAuth();
+app.listen(port, () => console.log(`WA CRM (Postgres/Supabase) di http://localhost:${port}`));
