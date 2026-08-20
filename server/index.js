@@ -199,10 +199,19 @@ app.post('/api/broadcast', async (req, res) => {
     return res.status(400).json({ error: 'name, language, wa_ids wajib' });
   const preview = params.reduce((t, p, i) => t.replaceAll(`{{${i + 1}}}`, p), req.body.text || `[template: ${name}]`);
   let sent = 0; const failed = [];
+  // kalau template punya gambar default, upload sekali & pakai buat semua penerima
+  let headerImageId;
+  try {
+    const def = await getTplMedia(name);
+    if (def) {
+      const { buffer, contentType } = await readMedia(def.path.replace(/^\/media\//, ''));
+      headerImageId = await uploadMedia(buffer, contentType || def.mime, 'header');
+    }
+  } catch (e) { console.error('header broadcast gagal', e.message); }
   // ponytail: sequential — aman dari rate limit dasar. Pakai queue kalau ribuan kontak.
   for (const wa_id of wa_ids) {
     try {
-      const waMsgId = await sendTemplate(wa_id, name, language, params);
+      const waMsgId = await sendTemplate(wa_id, name, language, params, headerImageId);
       const id = await insertMessage({ waId: wa_id, direction: 'out', body: preview, waMsgId, status: 'sent' });
       broadcast({ kind: 'message', wa_id, message: { id, direction: 'out', body: preview, type: 'text', status: 'sent', created_at: Date.now() } });
       sent++;
