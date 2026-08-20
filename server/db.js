@@ -97,6 +97,15 @@ export const listConversations = async () =>
 export const listMessages = async (waId) =>
   (await q('SELECT * FROM messages WHERE wa_id=$1 ORDER BY id ASC', [waId])).rows;
 
+// gambar default per template (biar tak upload ulang tiap kirim)
+export async function initTplMedia() {
+  await q('CREATE TABLE IF NOT EXISTS template_media (name text PRIMARY KEY, path text, mime text)');
+}
+export const setTplMedia = (name, path, mime) =>
+  q('INSERT INTO template_media(name,path,mime) VALUES($1,$2,$3) ON CONFLICT(name) DO UPDATE SET path=EXCLUDED.path, mime=EXCLUDED.mime', [name, path, mime]);
+export const getTplMedia = async (name) =>
+  (await q('SELECT path, mime FROM template_media WHERE name=$1', [name])).rows[0];
+
 export const stats = async () => {
   const dayAgo = Date.now() - 24 * 3600 * 1000;
   return (await q(`SELECT

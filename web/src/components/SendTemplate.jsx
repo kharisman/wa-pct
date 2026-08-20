@@ -13,7 +13,8 @@ export default function SendTemplate({ waId, onClose, onSent }) {
   useEffect(() => { fetch('/api/templates').then((r) => r.json()).then((d) => setTpls(d.error ? [] : d)); }, []);
   const pick = (t) => { setSel(t); setParams(Array(t.params).fill('')); setHFile(null); };
   const preview = sel ? params.reduce((s, p, i) => s.replaceAll(`{{${i + 1}}}`, p || `{{${i + 1}}}`), sel.text) : '';
-  const needImg = sel?.headerType === 'IMAGE';
+  const isImg = sel?.headerType === 'IMAGE';
+  const needImg = isImg && !sel?.hasImage; // wajib upload cuma kalau belum ada default
 
   const send = async () => {
     if (needImg && !hFile) return setErr('Template ini pakai header gambar — pilih gambar dulu.');
@@ -43,8 +44,8 @@ export default function SendTemplate({ waId, onClose, onSent }) {
               <option value="">— pilih —</option>
               {tpls.map((t) => <option key={t.name + t.language} value={t.name}>{t.name} ({t.language})</option>)}
             </select>
-            {needImg && (<>
-              <label>Gambar header</label>
+            {isImg && (<>
+              <label>Gambar header {sel?.hasImage ? '(opsional — default sudah tersimpan)' : ''}</label>
               <input type="file" accept="image/*" onChange={(e) => setHFile(e.target.files[0])} />
             </>)}
             {sel && params.map((p, i) => (

@@ -4,11 +4,12 @@ import { existsSync } from 'node:fs';
 import {
   upsertContact, insertMessage, updateStatus,
   listConversations, listMessages, getContact, updateContact, initDb, stats,
+  initTplMedia, setTplMedia, getTplMedia,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
 import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
-import { readMedia } from './store.js';
+import { readMedia, storeMedia } from './store.js';
 
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
@@ -128,8 +129,12 @@ app.patch('/api/settings', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/templates', async (_req, res) => {
-  try { res.json(await listTemplates()); }
-  catch (e) { res.status(502).json({ error: e.message }); }
+  try {
+    const tpls = await listTemplates();
+    // tandai template yg sudah punya gambar default tersimpan
+    for (const t of tpls) if (t.headerType === 'IMAGE') t.hasImage = !!(await getTplMedia(t.name));
+    res.json(tpls);
+  } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
 // Kelola template (admin): lihat semua status + bikin baru
@@ -141,14 +146,22 @@ app.post('/api/templates', requireAdmin, async (req, res) => {
   try {
     let header = req.body.header;
     // header media: frontend kirim base64 -> upload sample -> handle
+    let savedImg = null;
     if (req.body.headerMedia?.data) {
       const buf = Buffer.from(req.body.headerMedia.data, 'base64');
       const mime = req.body.headerMedia.mime;
       const handle = await uploadSampleMedia(buf, mime);
       const type = mime.startsWith('image/') ? 'IMAGE' : mime.startsWith('video/') ? 'VIDEO' : 'DOCUMENT';
       header = { type, handle };
+      // simpan gambar sbg default template ini (biar auto ikut saat kirim)
+      if (type === 'IMAGE') {
+        const ext = (mime.split('/')[1] || 'jpg').slice(0, 5);
+        savedImg = { path: `tpl-${req.body.name}.${ext}`, mime, buf };
+      }
     }
-    res.json(await createTemplate({ ...req.body, header }));
+    const out = await createTemplate({ ...req.body, header });
+    if (savedImg) { await storeMedia(savedImg.path, savedImg.buf, savedImg.mime); await setTplMedia(req.body.name, savedImg.path, savedImg.mime); }
+    res.json(out);
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
@@ -161,6 +174,13 @@ app.post('/api/send-template', async (req, res) => {
     if (headerMedia?.data) {
       const buf = Buffer.from(headerMedia.data, 'base64');
       headerImageId = await uploadMedia(buf, headerMedia.mime, headerMedia.filename);
+    } else {
+      // pakai gambar default template kalau ada
+      const def = await getTplMedia(name);
+      if (def) {
+        const { buffer, contentType } = await readMedia(def.path.replace(/^\/media\//, ''));
+        headerImageId = await uploadMedia(buffer, contentType || def.mime, 'header');
+      }
     }
     await upsertContact(wa_id, null); // pastikan kontak tersimpan walau dia belum pernah chat
     const waMsgId = await sendTemplate(wa_id, name, language, params, headerImageId);
@@ -208,6 +228,7 @@ if (existsSync(dist)) {
 
 const port = process.env.PORT || 3000;
 await initDb();
+await initTplMedia();
 await initAuth();
 await loadConfig();
 app.listen(port, () => console.log(`WA CRM (Postgres/Supabase) di http://localhost:${port}`));
