@@ -79,3 +79,45 @@ body { margin: 0; font: 14px/1.4 system-ui, sans-serif; color: #111; }
 .tab.active { color: #157a54; border-bottom-color: #25d366; font-weight: 600; }
 .link { border: 0; background: none; color: #888; cursor: pointer; font: inherit; }
 .conv .who { color: #157a54; font-weight: 400; font-size: 12px; }
+
+/* ===== Shell + Sidebar ===== */
+.shell { display: flex; height: 100vh; }
+.sidebar { width: 210px; flex: none; background: #0f2e23; color: #cfe8dd; display: flex; flex-direction: column; }
+.sidebar .brand { font-size: 17px; font-weight: 700; padding: 18px 16px; color: #fff; }
+.sidebar nav { display: flex; flex-direction: column; gap: 2px; padding: 0 8px; flex: 1; }
+.navitem { display: flex; align-items: center; gap: 10px; background: none; border: 0; color: #cfe8dd; text-align: left; padding: 11px 12px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 14px; }
+.navitem .ic { width: 20px; text-align: center; }
+.navitem:hover { background: rgba(255,255,255,.06); }
+.navitem.active { background: #25d366; color: #06231a; font-weight: 600; }
+.side-foot { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,.1); font-size: 13px; }
+.side-foot .who { margin-bottom: 6px; color: #fff; }
+.side-foot .link { color: #9ec7b7; }
+.content { flex: 1; min-width: 0; height: 100vh; overflow: auto; background: #f4f6f5; }
+.content .app { height: 100vh; grid-template-columns: 290px 1fr 260px; background: #fff; }
+
+/* ===== Halaman umum ===== */
+.page { max-width: 860px; margin: 0 auto; padding: 24px; }
+.page-title { font-size: 22px; margin: 0 0 18px; }
+.page-title small { color: #999; font-weight: 400; font-size: 15px; }
+.search { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font: inherit; margin-bottom: 14px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.card.nopad { padding: 0; overflow: hidden; }
+.muted { color: #999; }
+
+/* ===== Dashboard ===== */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; }
+.stat-card .ic { font-size: 20px; }
+.stat-card .val { font-size: 28px; font-weight: 700; margin: 4px 0 2px; }
+.stat-card .lbl { color: #888; font-size: 13px; }
+.recent-row { display: flex; gap: 10px; padding: 10px 4px; border-top: 1px solid #f0f0f0; cursor: pointer; }
+.recent-row:hover { background: #f7f8fa; }
+.recent-row b { min-width: 140px; }
+.recent-row .last { color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ===== Tabel kontak ===== */
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th { text-align: left; padding: 11px 14px; background: #fafafa; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid #eee; }
+.tbl td { padding: 11px 14px; border-bottom: 1px solid #f2f2f2; }
+.tbl .mono { font-family: ui-monospace, monospace; font-size: 13px; color: #555; }
+.tbl tr:hover td { background: #f9fafb; }

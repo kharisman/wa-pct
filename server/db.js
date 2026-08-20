@@ -96,3 +96,14 @@ export const listConversations = async () =>
 
 export const listMessages = async (waId) =>
   (await q('SELECT * FROM messages WHERE wa_id=$1 ORDER BY id ASC', [waId])).rows;
+
+export const stats = async () => {
+  const dayAgo = Date.now() - 24 * 3600 * 1000;
+  return (await q(`SELECT
+    (SELECT count(*) FROM contacts)::int AS contacts,
+    (SELECT count(*) FROM messages)::int AS messages,
+    (SELECT count(*) FROM messages WHERE direction='in'  AND created_at > $1)::int AS in24,
+    (SELECT count(*) FROM messages WHERE direction='out' AND created_at > $1)::int AS out24,
+    (SELECT count(*) FROM contacts WHERE assignee IS NULL OR assignee='')::int AS unassigned`,
+    [dayAgo])).rows[0];
+};

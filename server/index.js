@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import {
   upsertContact, insertMessage, updateStatus,
-  listConversations, listMessages, getContact, updateContact, initDb,
+  listConversations, listMessages, getContact, updateContact, initDb, stats,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
@@ -68,6 +68,7 @@ app.post('/webhook', (req, res) => {
 /* ---- API buat frontend ---- */
 app.use('/api', requireAuth); // semua /api di bawah ini butuh login
 
+app.get('/api/stats', async (_req, res) => res.json(await stats()));
 app.get('/api/conversations', async (_req, res) => res.json(await listConversations()));
 app.get('/api/messages/:waId', async (req, res) => res.json(await listMessages(req.params.waId)));
 
