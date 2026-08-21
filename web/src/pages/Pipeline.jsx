@@ -52,11 +52,11 @@ export default function Pipeline({ me, onOpen }) {
         </>}
       </div>
 
-      <div className="kanban">
+      <div className="kanban" style={{ display: 'flex', flexWrap: 'nowrap', gap: 14, overflowX: 'auto', alignItems: 'flex-start' }}>
         {stages.map((st) => {
           const items = rows.filter((r) => (r.pipeline_id || firstId) === sel && (r.stage || stages[0]) === st);
           return (
-            <div className="kcol" key={st}
+            <div className="kcol" key={st} style={{ flex: '0 0 272px', width: 272 }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => { if (drag) move(drag, st); setDrag(null); }}>
               <div className="kcol-head">{st}<span className="kcount">{items.length}</span></div>
