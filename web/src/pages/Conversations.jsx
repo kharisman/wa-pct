@@ -11,6 +11,8 @@ export default function Conversations({ me, active, setActive }) {
   const [filter, setFilter] = useState('all');
   const [showBc, setShowBc] = useState(false);
   const [showTpl, setShowTpl] = useState(false);
+  const [showNote, setShowNote] = useState(false);
+  const [noteText, setNoteText] = useState('');
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -58,9 +60,9 @@ export default function Conversations({ me, active, setActive }) {
   };
 
   const sendNote = async () => {
-    if (!text.trim() || !active) return;
-    const res = await post('/note', { wa_id: active, body: text });
-    if (res.ok) setText('');
+    if (!noteText.trim() || !active) return;
+    const res = await post('/note', { wa_id: active, body: noteText });
+    if (res.ok) { setNoteText(''); setShowNote(false); }
   };
 
   const sendFile = async (file) => {
@@ -132,7 +134,7 @@ export default function Conversations({ me, active, setActive }) {
             <input type="file" ref={fileRef} style={{ display: 'none' }} onChange={(e) => sendFile(e.target.files[0])} />
             <button type="button" className="attach" title="Lampirkan file" disabled={sending} onClick={() => fileRef.current?.click()}>📎</button>
             <button type="button" className="attach" title="Kirim template" onClick={() => setShowTpl(true)}>📋</button>
-            <button type="button" className="attach note-btn" title="Catatan internal (tidak dikirim ke pelanggan)" onClick={sendNote}>📝</button>
+            <button type="button" className="attach note-btn" title="Catatan internal (tidak dikirim ke pelanggan)" onClick={() => setShowNote(true)}>📝</button>
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ketik balasan…" />
             <button disabled={sending}>Kirim</button>
           </form>
@@ -144,6 +146,19 @@ export default function Conversations({ me, active, setActive }) {
       {active && <ContactPanel key={active} waId={active} users={users} onChange={loadConvs} />}
       {showBc && <Broadcast recipients={shown} onClose={() => setShowBc(false)} />}
       {showTpl && active && <SendTemplate waId={active} onClose={() => setShowTpl(false)} onSent={loadConvs} />}
+      {showNote && active && (
+        <div className="modal-bg" onClick={() => setShowNote(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>📝 Catatan internal</h2>
+            <p className="muted" style={{ fontSize: 12, margin: 0 }}>Hanya dilihat tim — tidak dikirim ke pelanggan.</p>
+            <textarea autoFocus rows={4} value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Tulis catatan…" style={{ padding: 8, border: '1px solid #ccc', borderRadius: 6, font: 'inherit', resize: 'vertical' }} />
+            <div className="modal-actions">
+              <button className="link" onClick={() => setShowNote(false)}>Batal</button>
+              <button disabled={!noteText.trim()} onClick={sendNote}>Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
