@@ -22,7 +22,7 @@ export default function Shell({ me, onLogout }) {
       if (Notification.permission !== 'granted') return;
       if (!document.hidden && ev.wa_id === activeRef.current) return; // lagi buka chat itu → skip
       const n = new Notification('💬 ' + (ev.name || ev.wa_id), { body: ev.message.body, tag: ev.wa_id });
-      n.onclick = () => { window.focus(); };
+      n.onclick = () => { window.focus(); setActive(ev.wa_id); setNav('conversations'); n.close(); };
     };
     return () => es.close();
   }, []);
