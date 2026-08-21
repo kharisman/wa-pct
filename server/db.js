@@ -191,6 +191,28 @@ export const setTplMedia = (name, path, mime) =>
 export const getTplMedia = async (name) =>
   (await q('SELECT path, mime FROM template_media WHERE name=$1', [name])).rows[0];
 
+export const agentReport = async () => {
+  const users = (await q('SELECT email, name, is_admin FROM users ORDER BY created_at')).rows;
+  const dayAgo = Date.now() - 24 * 3600 * 1000;
+  const out = [];
+  for (const u of users) {
+    const sent = (await q("SELECT count(*)::int c FROM messages WHERE direction='out' AND sent_by=$1", [u.name])).rows[0].c;
+    const sent24 = (await q("SELECT count(*)::int c FROM messages WHERE direction='out' AND sent_by=$1 AND created_at>$2", [u.name, dayAgo])).rows[0].c;
+    const assigned = (await q('SELECT count(*)::int c FROM contacts WHERE assignee=$1', [u.email])).rows[0].c;
+    out.push({ name: u.name, email: u.email, is_admin: u.is_admin, sent, sent24, assigned });
+  }
+  return out;
+};
+
+export const pipelineFunnel = async () => {
+  const pipes = await listPipelines();
+  const rows = (await q('SELECT pipeline_id, stage, count(*)::int c FROM contacts GROUP BY pipeline_id, stage')).rows;
+  return pipes.map((p) => ({
+    name: p.name,
+    stages: p.stages.map((s) => ({ stage: s, count: rows.find((r) => r.pipeline_id === p.id && r.stage === s)?.c || 0 })),
+  }));
+};
+
 export const stats = async () => {
   const dayAgo = Date.now() - 24 * 3600 * 1000;
   return (await q(`SELECT

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import {
   upsertContact, insertMessage, updateStatus,
-  listConversations, listMessages, getContact, updateContact, initDb, stats,
+  listConversations, listMessages, getContact, updateContact, initDb, stats, agentReport, pipelineFunnel,
   initTplMedia, setTplMedia, getTplMedia,
   initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel,
   setContactChannel, q,
@@ -92,6 +92,8 @@ app.post('/webhook', (req, res) => {
 app.use('/api', requireAuth); // semua /api di bawah ini butuh login
 
 app.get('/api/stats', async (_req, res) => res.json(await stats()));
+app.get('/api/reports/agents', requireAdmin, async (_req, res) => res.json(await agentReport()));
+app.get('/api/reports/pipeline', requireAdmin, async (_req, res) => res.json(await pipelineFunnel()));
 app.get('/api/conversations', async (_req, res) => res.json(await listConversations()));
 app.get('/api/messages/:waId', async (req, res) => res.json(await listMessages(req.params.waId)));
 
