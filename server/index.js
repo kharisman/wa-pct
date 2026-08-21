@@ -88,13 +88,23 @@ app.post('/api/send', async (req, res) => {
     // ponytail: hanya jalan dalam window 24 jam sejak pesan terakhir user.
     // Di luar itu WA wajib pakai approved template — tambah saat butuh outbound.
     const waMsgId = await sendText(wa_id, body);
-    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent' });
-    const message = { id, direction: 'out', body, type: 'text', status: 'sent', created_at: Date.now() };
+    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent', sentBy: req.user.name });
+    const message = { id, direction: 'out', body, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
     res.json(message);
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
+});
+
+// Catatan internal (tidak dikirim ke WhatsApp, cuma buat tim)
+app.post('/api/note', async (req, res) => {
+  const { wa_id, body } = req.body;
+  if (!wa_id || !body) return res.status(400).json({ error: 'wa_id & body wajib' });
+  const id = await insertMessage({ waId: wa_id, direction: 'note', body, sentBy: req.user.name });
+  const message = { id, direction: 'note', body, type: 'text', sent_by: req.user.name, created_at: Date.now() };
+  broadcast({ kind: 'message', wa_id, message });
+  res.json(message);
 });
 
 const mediaType = (mime) =>
@@ -112,8 +122,8 @@ app.post('/api/send-media', async (req, res) => {
     const ext = (filename?.split('.').pop() || mime.split('/')[1] || 'bin').slice(0, 5);
     const mediaUrl = await saveMediaFile(buf, `out-${waMsgId}.${ext}`, mime);
     const body = caption || filename || `[${type}]`;
-    const id = await insertMessage({ waId: wa_id, direction: 'out', type, body, waMsgId, status: 'sent', mediaUrl });
-    const message = { id, direction: 'out', type, body, media_url: mediaUrl, status: 'sent', created_at: Date.now() };
+    const id = await insertMessage({ waId: wa_id, direction: 'out', type, body, waMsgId, status: 'sent', mediaUrl, sentBy: req.user.name });
+    const message = { id, direction: 'out', type, body, media_url: mediaUrl, status: 'sent', sent_by: req.user.name, created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
     res.json(message);
   } catch (e) {
@@ -185,8 +195,8 @@ app.post('/api/send-template', async (req, res) => {
     await upsertContact(wa_id, null); // pastikan kontak tersimpan walau dia belum pernah chat
     const waMsgId = await sendTemplate(wa_id, name, language, params, headerImageId);
     const body = preview || `[template: ${name}]`;
-    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent' });
-    const message = { id, direction: 'out', body, type: 'text', status: 'sent', created_at: Date.now() };
+    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent', sentBy: req.user.name });
+    const message = { id, direction: 'out', body, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
     res.json(message);
   } catch (e) { res.status(502).json({ error: e.message }); }
@@ -212,8 +222,8 @@ app.post('/api/broadcast', async (req, res) => {
   for (const wa_id of wa_ids) {
     try {
       const waMsgId = await sendTemplate(wa_id, name, language, params, headerImageId);
-      const id = await insertMessage({ waId: wa_id, direction: 'out', body: preview, waMsgId, status: 'sent' });
-      broadcast({ kind: 'message', wa_id, message: { id, direction: 'out', body: preview, type: 'text', status: 'sent', created_at: Date.now() } });
+      const id = await insertMessage({ waId: wa_id, direction: 'out', body: preview, waMsgId, status: 'sent', sentBy: req.user.name });
+      broadcast({ kind: 'message', wa_id, message: { id, direction: 'out', body: preview, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() } });
       sent++;
     } catch (e) { failed.push({ wa_id, error: e.message }); }
   }

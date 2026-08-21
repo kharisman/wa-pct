@@ -39,6 +39,7 @@ export async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_msg_wa ON messages(wa_id, id);
   `);
+  await q('ALTER TABLE messages ADD COLUMN IF NOT EXISTS sent_by text'); // nama agen pengirim (out/note)
 }
 
 const now = () => Date.now();
@@ -51,16 +52,16 @@ export async function upsertContact(waId, name) {
   );
 }
 
-export async function insertMessage({ waId, direction, type = 'text', body, waMsgId, status, mediaUrl }) {
+export async function insertMessage({ waId, direction, type = 'text', body, waMsgId, status, mediaUrl, sentBy }) {
   // ponytail: dedup inbound by wa_msg_id — Meta redelivers webhooks on retry
   if (waMsgId) {
     const dup = await q('SELECT id FROM messages WHERE wa_msg_id=$1', [waMsgId]);
     if (dup.rows[0]) return dup.rows[0].id;
   }
   const r = await q(
-    `INSERT INTO messages(wa_id,direction,type,body,wa_msg_id,status,media_url,created_at)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-    [waId, direction, type, body ?? null, waMsgId ?? null, status ?? null, mediaUrl ?? null, now()]
+    `INSERT INTO messages(wa_id,direction,type,body,wa_msg_id,status,media_url,sent_by,created_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+    [waId, direction, type, body ?? null, waMsgId ?? null, status ?? null, mediaUrl ?? null, sentBy ?? null, now()]
   );
   return r.rows[0].id;
 }

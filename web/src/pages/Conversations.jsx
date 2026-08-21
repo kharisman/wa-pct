@@ -57,6 +57,12 @@ export default function Conversations({ me, active, setActive }) {
     } catch (err) { alert('Gagal kirim: ' + err.message); } finally { setSending(false); }
   };
 
+  const sendNote = async () => {
+    if (!text.trim() || !active) return;
+    const res = await post('/note', { wa_id: active, body: text });
+    if (res.ok) setText('');
+  };
+
   const sendFile = async (file) => {
     if (!file || !active) return;
     if (file.size > 25 * 1024 * 1024) return alert('Maks 25MB');
@@ -104,11 +110,17 @@ export default function Conversations({ me, active, setActive }) {
             <span className="num">{active}</span>
           </div>
           <div className="msgs">
-            {msgs.map((m) => (
+            {msgs.map((m) => m.direction === 'note' ? (
+              <div key={m.id} className="note-msg">
+                📝 {m.body}
+                <div className="meta">catatan internal · {m.sent_by || '?'} · {new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+            ) : (
               <div key={m.id} className={'bubble ' + m.direction}>
                 <Media m={m} />
                 {m.body}
                 <div className="meta">
+                  {m.direction === 'out' && m.sent_by ? m.sent_by + ' · ' : ''}
                   {new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                   {m.direction === 'out' && m.status ? ' · ' + m.status : ''}
                 </div>
@@ -120,6 +132,7 @@ export default function Conversations({ me, active, setActive }) {
             <input type="file" ref={fileRef} style={{ display: 'none' }} onChange={(e) => sendFile(e.target.files[0])} />
             <button type="button" className="attach" title="Lampirkan file" disabled={sending} onClick={() => fileRef.current?.click()}>📎</button>
             <button type="button" className="attach" title="Kirim template" onClick={() => setShowTpl(true)}>📋</button>
+            <button type="button" className="attach note-btn" title="Catatan internal (tidak dikirim ke pelanggan)" onClick={sendNote}>📝</button>
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ketik balasan…" />
             <button disabled={sending}>Kirim</button>
           </form>
