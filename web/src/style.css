@@ -195,3 +195,5 @@ body { color: #1b2340; }
 .kcard-foot { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .kcard-foot .who { font-size: 10px; color: #152159; background: #eef1fb; padding: 1px 6px; border-radius: 8px; }
 .kempty { color: #bbb; text-align: center; padding: 8px; font-size: 12px; }
+.pipe-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.pipe-bar select { padding: 8px; border: 1px solid #ccc; border-radius: 8px; font: inherit; }

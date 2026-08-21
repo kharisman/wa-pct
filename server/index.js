@@ -7,6 +7,7 @@ import {
   initTplMedia, setTplMedia, getTplMedia,
   initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel,
   setContactChannel, q,
+  initPipelines, listPipelines, createPipeline, updatePipeline, deletePipeline,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
@@ -144,6 +145,20 @@ app.patch('/api/settings', requireAdmin, async (req, res) => {
   res.json(getConfigView());
 });
 
+// ===== Pipeline (multi, custom) =====
+app.get('/api/pipelines', async (_req, res) => res.json(await listPipelines()));
+app.post('/api/pipelines', requireAdmin, async (req, res) => {
+  const { name, stages } = req.body;
+  if (!name || !Array.isArray(stages) || !stages.length) return res.status(400).json({ error: 'name & stages wajib' });
+  res.json({ id: await createPipeline(name, stages) });
+});
+app.patch('/api/pipelines/:id', requireAdmin, async (req, res) => {
+  await updatePipeline(req.params.id, req.body.name, req.body.stages); res.json({ ok: true });
+});
+app.delete('/api/pipelines/:id', requireAdmin, async (req, res) => {
+  await deletePipeline(req.params.id); res.json({ ok: true });
+});
+
 // ===== Kelola nomor (channels) =====
 app.get('/api/channels', async (_req, res) => {
   const rows = await listChannels();
@@ -274,8 +289,15 @@ const port = process.env.PORT || 3000;
 await initDb();
 await initTplMedia();
 await initChannels();
+await initPipelines();
 await initAuth();
 await loadConfig();
+if ((await listPipelines()).length === 0) {
+  const pid = await createPipeline('Umum', ['Baru', 'Dihubungi', 'Tertarik', 'Negosiasi', 'Deal', 'Batal']);
+  await q('UPDATE contacts SET pipeline_id=$1 WHERE pipeline_id IS NULL', [pid]);
+  await q("UPDATE contacts SET stage='Baru' WHERE stage IS NULL");
+  console.log('Pipeline default dibuat:', pid);
+}
 // seed channel pertama dari setting global (migrasi single -> multi)
 if ((await listChannels()).length === 0 && cfg('WA_PHONE_ID')) {
   await createChannel({ label: 'Nomor utama', phone_id: cfg('WA_PHONE_ID'), waba_id: cfg('WA_WABA_ID'), token: cfg('WA_TOKEN') });

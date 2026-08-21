@@ -65,7 +65,7 @@ export default function Shell({ me, onLogout }) {
         {nav === 'dashboard' && <Dashboard onOpen={openChat} setNav={setNav} />}
         {nav === 'conversations' && <Conversations me={me} active={active} setActive={setActive} />}
         {nav === 'contacts' && <Contacts onOpen={openChat} />}
-        {nav === 'pipeline' && <Pipeline onOpen={openChat} />}
+        {nav === 'pipeline' && <Pipeline me={me} onOpen={openChat} />}
         {nav === 'agents' && <Agents me={me} />}
         {nav === 'templates' && <Templates />}
         {nav === 'channels' && <Channels />}

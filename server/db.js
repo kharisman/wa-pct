@@ -74,26 +74,27 @@ export async function updateStatus(waMsgId, status) {
 }
 
 export const getContact = async (waId) =>
-  (await q('SELECT wa_id, name, labels, notes, assignee, channel_id, stage, created_at FROM contacts WHERE wa_id=$1', [waId])).rows[0];
+  (await q('SELECT wa_id, name, labels, notes, assignee, channel_id, stage, pipeline_id, created_at FROM contacts WHERE wa_id=$1', [waId])).rows[0];
 
-export async function updateContact(waId, { name, labels, notes, assignee, stage }) {
+export async function updateContact(waId, { name, labels, notes, assignee, stage, pipeline_id }) {
   await q(
     `UPDATE contacts SET
-       name     = COALESCE($1, name),
-       labels   = COALESCE($2, labels),
-       notes    = COALESCE($3, notes),
-       assignee = COALESCE($4, assignee),
-       stage    = COALESCE($5, stage)
-     WHERE wa_id=$6`,
+       name        = COALESCE($1, name),
+       labels      = COALESCE($2, labels),
+       notes       = COALESCE($3, notes),
+       assignee    = COALESCE($4, assignee),
+       stage       = COALESCE($5, stage),
+       pipeline_id = COALESCE($6, pipeline_id)
+     WHERE wa_id=$7`,
     [name ?? null, labels ? JSON.stringify(labels) : null, notes ?? null,
-     assignee === undefined ? null : assignee, stage ?? null, waId]
+     assignee === undefined ? null : assignee, stage ?? null, pipeline_id ?? null, waId]
   );
   return getContact(waId);
 }
 
 export const listConversations = async () =>
   (await q(`
-    SELECT c.wa_id, c.name, c.labels, c.assignee, c.channel_id, c.stage,
+    SELECT c.wa_id, c.name, c.labels, c.assignee, c.channel_id, c.stage, c.pipeline_id,
            ch.label AS channel_label,
            (SELECT body FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_body,
            (SELECT created_at FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_at
@@ -128,6 +129,19 @@ export const createChannel = async ({ label, phone_id, waba_id, token }) =>
 export const deleteChannel = (id) => q('DELETE FROM channels WHERE id=$1', [id]);
 export const setContactChannel = (waId, channelId) =>
   q('UPDATE contacts SET channel_id=$1 WHERE wa_id=$2 AND channel_id IS NULL', [channelId, waId]);
+
+// ===== Pipeline (multi, custom stages) =====
+export async function initPipelines() {
+  await q('CREATE TABLE IF NOT EXISTS pipelines (id serial PRIMARY KEY, name text, stages text, created_at bigint NOT NULL)');
+  await q('ALTER TABLE contacts ADD COLUMN IF NOT EXISTS pipeline_id int');
+}
+export const listPipelines = async () =>
+  (await q('SELECT id, name, stages FROM pipelines ORDER BY id')).rows.map((p) => ({ id: p.id, name: p.name, stages: JSON.parse(p.stages || '[]') }));
+export const createPipeline = async (name, stages) =>
+  (await q('INSERT INTO pipelines(name,stages,created_at) VALUES($1,$2,$3) RETURNING id', [name, JSON.stringify(stages), Date.now()])).rows[0].id;
+export const updatePipeline = (id, name, stages) =>
+  q('UPDATE pipelines SET name=COALESCE($1,name), stages=COALESCE($2,stages) WHERE id=$3', [name ?? null, stages ? JSON.stringify(stages) : null, id]);
+export const deletePipeline = (id) => q('DELETE FROM pipelines WHERE id=$1', [id]);
 
 // gambar default per template (biar tak upload ulang tiap kirim)
 export async function initTplMedia() {

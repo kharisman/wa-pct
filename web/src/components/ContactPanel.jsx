@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { patch } from '../api.js';
-import { STAGES } from '../pages/Pipeline.jsx';
+import { api, patch } from '../api.js';
 
 export default function ContactPanel({ waId, users, onChange }) {
   const [c, setC] = useState(null);
   const [saved, setSaved] = useState(false);
   const [tag, setTag] = useState('');
+  const [pipes, setPipes] = useState([]);
 
   useEffect(() => {
     fetch('/api/contact/' + waId).then((r) => r.json()).then((d) => setC({ labels: '[]', ...d }));
   }, [waId]);
+  useEffect(() => { api('/pipelines').then(setPipes); }, []);
 
   const save = async (body) => {
     const res = await patch('/contact/' + waId, body);
@@ -25,9 +26,14 @@ export default function ContactPanel({ waId, users, onChange }) {
       <h2>{c.name || waId}</h2>
       <div className="wa">{waId}</div>
 
-      <label>Tahap (pipeline)</label>
-      <select value={c.stage || 'Baru'} onChange={(e) => save({ stage: e.target.value })}>
-        {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+      <label>Pipeline</label>
+      <select value={c.pipeline_id || (pipes[0]?.id ?? '')} onChange={(e) => save({ pipeline_id: Number(e.target.value) })}>
+        {pipes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+
+      <label>Tahap</label>
+      <select value={c.stage || ''} onChange={(e) => save({ stage: e.target.value })}>
+        {(pipes.find((p) => p.id === (c.pipeline_id || pipes[0]?.id))?.stages || []).map((s) => <option key={s} value={s}>{s}</option>)}
       </select>
 
       <label>Ditangani</label>
