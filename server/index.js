@@ -55,7 +55,7 @@ app.post('/webhook', (req, res) => {
             catch (e) { console.error('media gagal', e.message); body += ' (media gagal diunduh)'; }
           }
           const id = await insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl });
-          broadcast({ kind: 'message', wa_id: m.from, message: { id, direction: 'in', body, type: m.type, media_url: mediaUrl, created_at: Date.now() } });
+          broadcast({ kind: 'message', wa_id: m.from, name: profileName, message: { id, direction: 'in', body, type: m.type, media_url: mediaUrl, created_at: Date.now() } });
         }
         for (const s of v.statuses ?? []) {
           if (s.status === 'failed') console.error('SEND FAILED:', JSON.stringify(s.errors));

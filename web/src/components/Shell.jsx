@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Dashboard from '../pages/Dashboard.jsx';
 import Conversations from '../pages/Conversations.jsx';
 import Contacts from '../pages/Contacts.jsx';
@@ -9,6 +9,22 @@ import Settings from '../pages/Settings.jsx';
 export default function Shell({ me, onLogout }) {
   const [nav, setNav] = useState('conversations');
   const [active, setActive] = useState(null); // wa_id percakapan terbuka
+  const [notif, setNotif] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+
+  // Notifikasi browser saat ada pesan masuk (tab tidak aktif)
+  useEffect(() => {
+    const es = new EventSource('/api/stream');
+    es.onmessage = (e) => {
+      const ev = JSON.parse(e.data);
+      if (ev.kind === 'message' && ev.message.direction === 'in' && document.hidden && Notification.permission === 'granted') {
+        const n = new Notification('💬 ' + (ev.name || ev.wa_id), { body: ev.message.body, tag: ev.wa_id });
+        n.onclick = () => window.focus();
+      }
+    };
+    return () => es.close();
+  }, []);
+
+  const askNotif = async () => setNotif(await Notification.requestPermission());
 
   const items = [
     ['dashboard', '📊', 'Dashboard'],
@@ -32,6 +48,9 @@ export default function Shell({ me, onLogout }) {
         </nav>
         <div className="side-foot">
           <div className="who">{me.name}{me.is_admin ? ' 👑' : ''}</div>
+          {notif !== 'granted' && notif !== 'unsupported' && (
+            <button className="link" onClick={askNotif} style={{ display: 'block', marginBottom: 6 }}>🔔 Aktifkan notifikasi</button>
+          )}
           <button className="link" onClick={async () => { await fetch('/api/logout', { method: 'POST' }); onLogout(); }}>Keluar</button>
         </div>
       </aside>
