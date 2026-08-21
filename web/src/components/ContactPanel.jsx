@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { patch } from '../api.js';
+import { STAGES } from '../pages/Pipeline.jsx';
 
 export default function ContactPanel({ waId, users, onChange }) {
   const [c, setC] = useState(null);
@@ -23,6 +24,11 @@ export default function ContactPanel({ waId, users, onChange }) {
     <div className="panel">
       <h2>{c.name || waId}</h2>
       <div className="wa">{waId}</div>
+
+      <label>Tahap (pipeline)</label>
+      <select value={c.stage || 'Baru'} onChange={(e) => save({ stage: e.target.value })}>
+        {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+      </select>
 
       <label>Ditangani</label>
       <select value={c.assignee || ''} onChange={(e) => save({ assignee: e.target.value })}>
