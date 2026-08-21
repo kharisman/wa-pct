@@ -5,6 +5,7 @@ import Contacts from '../pages/Contacts.jsx';
 import Pipeline from '../pages/Pipeline.jsx';
 import Agents from '../pages/Agents.jsx';
 import Templates from '../pages/Templates.jsx';
+import QuickReplies from '../pages/QuickReplies.jsx';
 import Channels from '../pages/Channels.jsx';
 import Settings from '../pages/Settings.jsx';
 
@@ -36,7 +37,7 @@ export default function Shell({ me, onLogout }) {
     ['conversations', '💬', 'Percakapan'],
     ['contacts', '👥', 'Kontak'],
     ['pipeline', '🎯', 'Pipeline'],
-    ...(me.is_admin ? [['agents', '🧑‍💼', 'Agen'], ['templates', '📄', 'Template'], ['channels', '📱', 'Nomor'], ['settings', '⚙️', 'Setting']] : []),
+    ...(me.is_admin ? [['agents', '🧑‍💼', 'Agen'], ['templates', '📄', 'Template'], ['quick', '⚡', 'Balasan Cepat'], ['channels', '📱', 'Nomor'], ['settings', '⚙️', 'Setting']] : []),
   ];
 
   const openChat = (wa) => { setActive(wa); setNav('conversations'); };
@@ -68,6 +69,7 @@ export default function Shell({ me, onLogout }) {
         {nav === 'pipeline' && <Pipeline me={me} onOpen={openChat} />}
         {nav === 'agents' && <Agents me={me} />}
         {nav === 'templates' && <Templates />}
+        {nav === 'quick' && <QuickReplies />}
         {nav === 'channels' && <Channels />}
         {nav === 'settings' && <Settings />}
       </main>

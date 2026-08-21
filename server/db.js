@@ -130,6 +130,16 @@ export const deleteChannel = (id) => q('DELETE FROM channels WHERE id=$1', [id])
 export const setContactChannel = (waId, channelId) =>
   q('UPDATE contacts SET channel_id=$1 WHERE wa_id=$2 AND channel_id IS NULL', [channelId, waId]);
 
+// ===== Balasan cepat (snippet) =====
+export async function initQuickReplies() {
+  await q('CREATE TABLE IF NOT EXISTS quick_replies (id serial PRIMARY KEY, title text, body text, created_at bigint NOT NULL)');
+}
+export const listQuickReplies = async () =>
+  (await q('SELECT id, title, body FROM quick_replies ORDER BY title')).rows;
+export const createQuickReply = async (title, body) =>
+  (await q('INSERT INTO quick_replies(title,body,created_at) VALUES($1,$2,$3) RETURNING id', [title, body, Date.now()])).rows[0].id;
+export const deleteQuickReply = (id) => q('DELETE FROM quick_replies WHERE id=$1', [id]);
+
 // ===== Pipeline (multi, custom stages) =====
 export async function initPipelines() {
   await q('CREATE TABLE IF NOT EXISTS pipelines (id serial PRIMARY KEY, name text, stages text, created_at bigint NOT NULL)');

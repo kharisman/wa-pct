@@ -13,6 +13,9 @@ export default function Conversations({ me, active, setActive }) {
   const [showTpl, setShowTpl] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [quick, setQuick] = useState([]);
+  const [showQuick, setShowQuick] = useState(false);
+  useEffect(() => { api('/quick-replies').then(setQuick); }, []);
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -139,6 +142,19 @@ export default function Conversations({ me, active, setActive }) {
             <button type="button" className="attach" title="Lampirkan file" disabled={sending} onClick={() => fileRef.current?.click()}>📎</button>
             <button type="button" className="attach" title="Kirim template" onClick={() => setShowTpl(true)}>📋</button>
             <button type="button" className="attach note-btn" title="Catatan internal (tidak dikirim ke pelanggan)" onClick={() => setShowNote(true)}>📝</button>
+            <div className="quick-wrap">
+              <button type="button" className="attach" title="Balasan cepat" onClick={() => setShowQuick((s) => !s)}>⚡</button>
+              {showQuick && (
+                <div className="quick-pop">
+                  {quick.length === 0 && <div className="quick-empty">Belum ada balasan cepat.</div>}
+                  {quick.map((q) => (
+                    <div key={q.id} className="quick-item" onClick={() => { setText((t) => (t ? t + ' ' : '') + q.body); setShowQuick(false); }}>
+                      <b>{q.title}</b><span>{q.body}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ketik balasan…" />
             <button disabled={sending}>Kirim</button>
           </form>

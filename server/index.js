@@ -8,6 +8,7 @@ import {
   initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel,
   setContactChannel, q,
   initPipelines, listPipelines, createPipeline, updatePipeline, deletePipeline,
+  initQuickReplies, listQuickReplies, createQuickReply, deleteQuickReply,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
@@ -143,6 +144,17 @@ app.get('/api/settings', requireAdmin, (_req, res) => res.json(getConfigView()))
 app.patch('/api/settings', requireAdmin, async (req, res) => {
   await setConfig(req.body);
   res.json(getConfigView());
+});
+
+// ===== Balasan cepat =====
+app.get('/api/quick-replies', async (_req, res) => res.json(await listQuickReplies()));
+app.post('/api/quick-replies', requireAdmin, async (req, res) => {
+  const { title, body } = req.body;
+  if (!title || !body) return res.status(400).json({ error: 'judul & isi wajib' });
+  res.json({ id: await createQuickReply(title, body) });
+});
+app.delete('/api/quick-replies/:id', requireAdmin, async (req, res) => {
+  await deleteQuickReply(req.params.id); res.json({ ok: true });
 });
 
 // ===== Pipeline (multi, custom) =====
@@ -290,6 +302,7 @@ await initDb();
 await initTplMedia();
 await initChannels();
 await initPipelines();
+await initQuickReplies();
 await initAuth();
 await loadConfig();
 if ((await listPipelines()).length === 0) {

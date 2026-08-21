@@ -225,3 +225,10 @@ body { color: #1b2340; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .tbl th:nth-child(3), .tbl td:nth-child(3) { display: none; } /* sembunyikan kolom label di tabel sempit */
 }
+.quick-wrap { position: relative; }
+.quick-pop { position: absolute; bottom: 48px; left: 0; width: 280px; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.14); z-index: 20; }
+.quick-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #f2f2f2; }
+.quick-item:hover { background: #f5f7fa; }
+.quick-item b { display: block; font-size: 13px; }
+.quick-item span { color: #888; font-size: 12px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quick-empty { padding: 12px; color: #999; font-size: 13px; }
