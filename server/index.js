@@ -5,6 +5,8 @@ import {
   upsertContact, insertMessage, updateStatus,
   listConversations, listMessages, getContact, updateContact, initDb, stats,
   initTplMedia, setTplMedia, getTplMedia,
+  initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel,
+  setContactChannel, q,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
@@ -45,16 +47,18 @@ app.post('/webhook', (req, res) => {
       for (const change of entry.changes ?? []) {
         const v = change.value ?? {};
         const profileName = v.contacts?.[0]?.profile?.name;
+        const ch = await getChannelByPhone(v.metadata?.phone_number_id); // nomor mana yg nerima
+        const channelId = ch?.id ?? null;
         for (const m of v.messages ?? []) {
-          await upsertContact(m.from, profileName);
+          await upsertContact(m.from, profileName, channelId);
           const media = m[m.type]; // image/audio/video/document/sticker: {id, mime_type, caption?, filename?}
           let body = m.text?.body ?? media?.caption ?? media?.filename ?? `[${m.type}]`;
           let mediaUrl = null;
           if (media?.id) {
-            try { mediaUrl = await downloadMedia(media.id, media.mime_type); }
+            try { mediaUrl = await downloadMedia(ch, media.id, media.mime_type); }
             catch (e) { console.error('media gagal', e.message); body += ' (media gagal diunduh)'; }
           }
-          const id = await insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl });
+          const id = await insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl, channelId });
           broadcast({ kind: 'message', wa_id: m.from, name: profileName, message: { id, direction: 'in', body, type: m.type, media_url: mediaUrl, created_at: Date.now() } });
         }
         for (const s of v.statuses ?? []) {
@@ -87,8 +91,9 @@ app.post('/api/send', async (req, res) => {
   try {
     // ponytail: hanya jalan dalam window 24 jam sejak pesan terakhir user.
     // Di luar itu WA wajib pakai approved template — tambah saat butuh outbound.
-    const waMsgId = await sendText(wa_id, body);
-    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent', sentBy: req.user.name });
+    const ch = await chanOf(wa_id);
+    const waMsgId = await sendText(ch, wa_id, body);
+    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent', sentBy: req.user.name, channelId: ch?.id });
     const message = { id, direction: 'out', body, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
     res.json(message);
@@ -117,12 +122,13 @@ app.post('/api/send-media', async (req, res) => {
   try {
     const buf = Buffer.from(data, 'base64');
     const type = mediaType(mime);
-    const mediaId = await uploadMedia(buf, mime, filename);
-    const waMsgId = await sendMedia(wa_id, type, mediaId, { caption, filename });
+    const ch = await chanOf(wa_id);
+    const mediaId = await uploadMedia(ch, buf, mime, filename);
+    const waMsgId = await sendMedia(ch, wa_id, type, mediaId, { caption, filename });
     const ext = (filename?.split('.').pop() || mime.split('/')[1] || 'bin').slice(0, 5);
     const mediaUrl = await saveMediaFile(buf, `out-${waMsgId}.${ext}`, mime);
     const body = caption || filename || `[${type}]`;
-    const id = await insertMessage({ waId: wa_id, direction: 'out', type, body, waMsgId, status: 'sent', mediaUrl, sentBy: req.user.name });
+    const id = await insertMessage({ waId: wa_id, direction: 'out', type, body, waMsgId, status: 'sent', mediaUrl, sentBy: req.user.name, channelId: ch?.id });
     const message = { id, direction: 'out', type, body, media_url: mediaUrl, status: 'sent', sent_by: req.user.name, created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
     res.json(message);
@@ -138,29 +144,45 @@ app.patch('/api/settings', requireAdmin, async (req, res) => {
   res.json(getConfigView());
 });
 
-app.get('/api/templates', async (_req, res) => {
+// ===== Kelola nomor (channels) =====
+app.get('/api/channels', async (_req, res) => {
+  const rows = await listChannels();
+  res.json(rows.map((c) => ({ id: c.id, label: c.label, phone_id: c.phone_id, waba_id: c.waba_id, hasToken: !!c.token })));
+});
+app.post('/api/channels', requireAdmin, async (req, res) => {
+  const { label, phone_id, waba_id, token } = req.body;
+  if (!label || !phone_id || !waba_id) return res.status(400).json({ error: 'label, phone_id, waba_id wajib' });
+  try { const id = await createChannel({ label, phone_id, waba_id, token }); res.json({ id }); }
+  catch { res.status(409).json({ error: 'phone_id sudah terdaftar' }); }
+});
+app.delete('/api/channels/:id', requireAdmin, async (req, res) => {
+  await deleteChannel(req.params.id); res.json({ ok: true });
+});
+
+app.get('/api/templates', async (req, res) => {
   try {
-    const tpls = await listTemplates();
-    // tandai template yg sudah punya gambar default tersimpan
+    const ch = await pickChannel({ channel_id: req.query.channel_id, wa_id: req.query.wa_id });
+    const tpls = await listTemplates(ch);
     for (const t of tpls) if (t.headerType === 'IMAGE') t.hasImage = !!(await getTplMedia(t.name));
     res.json(tpls);
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
 // Kelola template (admin): lihat semua status + bikin baru
-app.get('/api/templates/all', requireAdmin, async (_req, res) => {
-  try { res.json(await listAllTemplates()); }
+app.get('/api/templates/all', requireAdmin, async (req, res) => {
+  try { res.json(await listAllTemplates(await pickChannel({ channel_id: req.query.channel_id }))); }
   catch (e) { res.status(502).json({ error: e.message }); }
 });
 app.post('/api/templates', requireAdmin, async (req, res) => {
   try {
+    const ch = await pickChannel({ channel_id: req.body.channel_id });
     let header = req.body.header;
     // header media: frontend kirim base64 -> upload sample -> handle
     let savedImg = null;
     if (req.body.headerMedia?.data) {
       const buf = Buffer.from(req.body.headerMedia.data, 'base64');
       const mime = req.body.headerMedia.mime;
-      const handle = await uploadSampleMedia(buf, mime);
+      const handle = await uploadSampleMedia(ch, buf, mime);
       const type = mime.startsWith('image/') ? 'IMAGE' : mime.startsWith('video/') ? 'VIDEO' : 'DOCUMENT';
       header = { type, handle };
       // simpan gambar sbg default template ini (biar auto ikut saat kirim)
@@ -169,7 +191,7 @@ app.post('/api/templates', requireAdmin, async (req, res) => {
         savedImg = { path: `tpl-${req.body.name}.${ext}`, mime, buf };
       }
     }
-    const out = await createTemplate({ ...req.body, header });
+    const out = await createTemplate(ch, { ...req.body, header });
     if (savedImg) { await storeMedia(savedImg.path, savedImg.buf, savedImg.mime); await setTplMedia(req.body.name, savedImg.path, savedImg.mime); }
     res.json(out);
   } catch (e) { res.status(502).json({ error: e.message }); }
@@ -180,22 +202,22 @@ app.post('/api/send-template', async (req, res) => {
   const { wa_id, name, language, params = [], preview, headerMedia } = req.body;
   if (!wa_id || !name || !language) return res.status(400).json({ error: 'wa_id, name, language wajib' });
   try {
+    const ch = await chanOf(wa_id);
     let headerImageId;
     if (headerMedia?.data) {
       const buf = Buffer.from(headerMedia.data, 'base64');
-      headerImageId = await uploadMedia(buf, headerMedia.mime, headerMedia.filename);
+      headerImageId = await uploadMedia(ch, buf, headerMedia.mime, headerMedia.filename);
     } else {
-      // pakai gambar default template kalau ada
       const def = await getTplMedia(name);
       if (def) {
         const { buffer, contentType } = await readMedia(def.path.replace(/^\/media\//, ''));
-        headerImageId = await uploadMedia(buffer, contentType || def.mime, 'header');
+        headerImageId = await uploadMedia(ch, buffer, contentType || def.mime, 'header');
       }
     }
-    await upsertContact(wa_id, null); // pastikan kontak tersimpan walau dia belum pernah chat
-    const waMsgId = await sendTemplate(wa_id, name, language, params, headerImageId);
+    await upsertContact(wa_id, null, ch?.id);
+    const waMsgId = await sendTemplate(ch, wa_id, name, language, params, headerImageId);
     const body = preview || `[template: ${name}]`;
-    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent', sentBy: req.user.name });
+    const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent', sentBy: req.user.name, channelId: ch?.id });
     const message = { id, direction: 'out', body, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
     res.json(message);
@@ -209,20 +231,23 @@ app.post('/api/broadcast', async (req, res) => {
     return res.status(400).json({ error: 'name, language, wa_ids wajib' });
   const preview = params.reduce((t, p, i) => t.replaceAll(`{{${i + 1}}}`, p), req.body.text || `[template: ${name}]`);
   let sent = 0; const failed = [];
-  // kalau template punya gambar default, upload sekali & pakai buat semua penerima
-  let headerImageId;
-  try {
-    const def = await getTplMedia(name);
-    if (def) {
-      const { buffer, contentType } = await readMedia(def.path.replace(/^\/media\//, ''));
-      headerImageId = await uploadMedia(buffer, contentType || def.mime, 'header');
-    }
-  } catch (e) { console.error('header broadcast gagal', e.message); }
+  const def = await getTplMedia(name); // gambar default template (kalau ada)
+  const hdrCache = new Map(); // channelId -> media id (upload sekali per channel)
   // ponytail: sequential — aman dari rate limit dasar. Pakai queue kalau ribuan kontak.
   for (const wa_id of wa_ids) {
     try {
-      const waMsgId = await sendTemplate(wa_id, name, language, params, headerImageId);
-      const id = await insertMessage({ waId: wa_id, direction: 'out', body: preview, waMsgId, status: 'sent', sentBy: req.user.name });
+      const ch = await chanOf(wa_id);
+      let headerImageId;
+      if (def) {
+        const key = ch?.id || 0;
+        if (!hdrCache.has(key)) {
+          try { const { buffer, contentType } = await readMedia(def.path.replace(/^\/media\//, '')); hdrCache.set(key, await uploadMedia(ch, buffer, contentType || def.mime, 'header')); }
+          catch { hdrCache.set(key, null); }
+        }
+        headerImageId = hdrCache.get(key);
+      }
+      const waMsgId = await sendTemplate(ch, wa_id, name, language, params, headerImageId);
+      const id = await insertMessage({ waId: wa_id, direction: 'out', body: preview, waMsgId, status: 'sent', sentBy: req.user.name, channelId: ch?.id });
       broadcast({ kind: 'message', wa_id, message: { id, direction: 'out', body: preview, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() } });
       sent++;
     } catch (e) { failed.push({ wa_id, error: e.message }); }
@@ -248,6 +273,25 @@ if (existsSync(dist)) {
 const port = process.env.PORT || 3000;
 await initDb();
 await initTplMedia();
+await initChannels();
 await initAuth();
 await loadConfig();
+// seed channel pertama dari setting global (migrasi single -> multi)
+if ((await listChannels()).length === 0 && cfg('WA_PHONE_ID')) {
+  await createChannel({ label: 'Nomor utama', phone_id: cfg('WA_PHONE_ID'), waba_id: cfg('WA_WABA_ID'), token: cfg('WA_TOKEN') });
+  const ch = await getChannelByPhone(cfg('WA_PHONE_ID'));
+  await q('UPDATE contacts SET channel_id=$1 WHERE channel_id IS NULL', [ch.id]);
+  await q('UPDATE messages SET channel_id=$1 WHERE channel_id IS NULL', [ch.id]);
+  console.log('Channel pertama dibuat dari setting global:', ch.id);
+}
+// resolve channel dari kontak (buat kirim balik lewat nomor yg benar)
+async function chanOf(waId) {
+  const c = await getContact(waId);
+  return c?.channel_id ? await getChannel(c.channel_id) : null;
+}
+async function pickChannel({ channel_id, wa_id } = {}) {
+  if (channel_id) return await getChannel(channel_id);
+  if (wa_id) return await chanOf(wa_id);
+  return (await listChannels())[0] || null;
+}
 app.listen(port, () => console.log(`WA CRM (Postgres/Supabase) di http://localhost:${port}`));

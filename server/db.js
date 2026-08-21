@@ -44,24 +44,26 @@ export async function initDb() {
 
 const now = () => Date.now();
 
-export async function upsertContact(waId, name) {
+export async function upsertContact(waId, name, channelId) {
   await q(
-    `INSERT INTO contacts(wa_id, name, created_at) VALUES($1,$2,$3)
-     ON CONFLICT(wa_id) DO UPDATE SET name = COALESCE(EXCLUDED.name, contacts.name)`,
-    [waId, name ?? null, now()]
+    `INSERT INTO contacts(wa_id, name, channel_id, created_at) VALUES($1,$2,$3,$4)
+     ON CONFLICT(wa_id) DO UPDATE SET
+       name = COALESCE(EXCLUDED.name, contacts.name),
+       channel_id = COALESCE(contacts.channel_id, EXCLUDED.channel_id)`,
+    [waId, name ?? null, channelId ?? null, now()]
   );
 }
 
-export async function insertMessage({ waId, direction, type = 'text', body, waMsgId, status, mediaUrl, sentBy }) {
+export async function insertMessage({ waId, direction, type = 'text', body, waMsgId, status, mediaUrl, sentBy, channelId }) {
   // ponytail: dedup inbound by wa_msg_id — Meta redelivers webhooks on retry
   if (waMsgId) {
     const dup = await q('SELECT id FROM messages WHERE wa_msg_id=$1', [waMsgId]);
     if (dup.rows[0]) return dup.rows[0].id;
   }
   const r = await q(
-    `INSERT INTO messages(wa_id,direction,type,body,wa_msg_id,status,media_url,sent_by,created_at)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-    [waId, direction, type, body ?? null, waMsgId ?? null, status ?? null, mediaUrl ?? null, sentBy ?? null, now()]
+    `INSERT INTO messages(wa_id,direction,type,body,wa_msg_id,status,media_url,sent_by,channel_id,created_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    [waId, direction, type, body ?? null, waMsgId ?? null, status ?? null, mediaUrl ?? null, sentBy ?? null, channelId ?? null, now()]
   );
   return r.rows[0].id;
 }
@@ -71,7 +73,7 @@ export async function updateStatus(waMsgId, status) {
 }
 
 export const getContact = async (waId) =>
-  (await q('SELECT wa_id, name, labels, notes, assignee, created_at FROM contacts WHERE wa_id=$1', [waId])).rows[0];
+  (await q('SELECT wa_id, name, labels, notes, assignee, channel_id, created_at FROM contacts WHERE wa_id=$1', [waId])).rows[0];
 
 export async function updateContact(waId, { name, labels, notes, assignee }) {
   await q(
@@ -89,14 +91,41 @@ export async function updateContact(waId, { name, labels, notes, assignee }) {
 
 export const listConversations = async () =>
   (await q(`
-    SELECT c.wa_id, c.name, c.labels, c.assignee,
+    SELECT c.wa_id, c.name, c.labels, c.assignee, c.channel_id,
+           ch.label AS channel_label,
            (SELECT body FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_body,
            (SELECT created_at FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_at
-    FROM contacts c ORDER BY last_at DESC NULLS LAST
+    FROM contacts c LEFT JOIN channels ch ON ch.id=c.channel_id ORDER BY last_at DESC NULLS LAST
   `)).rows;
 
 export const listMessages = async (waId) =>
   (await q('SELECT * FROM messages WHERE wa_id=$1 ORDER BY id ASC', [waId])).rows;
+
+// ===== Multi-nomor (channels) =====
+export async function initChannels() {
+  await q(`CREATE TABLE IF NOT EXISTS channels (
+    id serial PRIMARY KEY,
+    label text,
+    phone_id text UNIQUE,
+    waba_id text,
+    token text,
+    created_at bigint NOT NULL
+  )`);
+  await q('ALTER TABLE contacts ADD COLUMN IF NOT EXISTS channel_id int');
+  await q('ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id int');
+}
+export const listChannels = async () =>
+  (await q('SELECT id, label, phone_id, waba_id, token FROM channels ORDER BY id')).rows;
+export const getChannel = async (id) =>
+  (await q('SELECT id, label, phone_id, waba_id, token FROM channels WHERE id=$1', [id])).rows[0];
+export const getChannelByPhone = async (phoneId) =>
+  (await q('SELECT id, label, phone_id, waba_id, token FROM channels WHERE phone_id=$1', [phoneId])).rows[0];
+export const createChannel = async ({ label, phone_id, waba_id, token }) =>
+  (await q('INSERT INTO channels(label,phone_id,waba_id,token,created_at) VALUES($1,$2,$3,$4,$5) RETURNING id',
+    [label, phone_id, waba_id, token ?? null, Date.now()])).rows[0].id;
+export const deleteChannel = (id) => q('DELETE FROM channels WHERE id=$1', [id]);
+export const setContactChannel = (waId, channelId) =>
+  q('UPDATE contacts SET channel_id=$1 WHERE wa_id=$2 AND channel_id IS NULL', [channelId, waId]);
 
 // gambar default per template (biar tak upload ulang tiap kirim)
 export async function initTplMedia() {

@@ -10,7 +10,7 @@ export default function SendTemplate({ waId, onClose, onSent }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  useEffect(() => { fetch('/api/templates').then((r) => r.json()).then((d) => setTpls(d.error ? [] : d)); }, []);
+  useEffect(() => { fetch('/api/templates?wa_id=' + waId).then((r) => r.json()).then((d) => setTpls(d.error ? [] : d)); }, [waId]);
   const pick = (t) => { setSel(t); setParams(Array(t.params).fill('')); setHFile(null); };
   const preview = sel ? params.reduce((s, p, i) => s.replaceAll(`{{${i + 1}}}`, p || `{{${i + 1}}}`), sel.text) : '';
   const isImg = sel?.headerType === 'IMAGE';

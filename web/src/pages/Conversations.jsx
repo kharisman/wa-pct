@@ -98,6 +98,7 @@ export default function Conversations({ me, active, setActive }) {
         {shown.map((c) => (
           <div key={c.wa_id} className={'conv' + (c.wa_id === active ? ' active' : '')} onClick={() => setActive(c.wa_id)}>
             <div className="name">{c.name || c.wa_id}{c.assignee && <span className="who"> · {c.assignee === me.email ? 'saya' : c.assignee.split('@')[0]}</span>}</div>
+            {c.channel_label && <span className="chan-badge">📱 {c.channel_label}</span>}
             <div className="last">{c.last_body}</div>
             <div className="labels">{JSON.parse(c.labels || '[]').map((l) => <span key={l} className="chip mini">{l}</span>)}</div>
           </div>

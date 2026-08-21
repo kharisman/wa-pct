@@ -4,6 +4,7 @@ import Conversations from '../pages/Conversations.jsx';
 import Contacts from '../pages/Contacts.jsx';
 import Agents from '../pages/Agents.jsx';
 import Templates from '../pages/Templates.jsx';
+import Channels from '../pages/Channels.jsx';
 import Settings from '../pages/Settings.jsx';
 
 export default function Shell({ me, onLogout }) {
@@ -33,7 +34,7 @@ export default function Shell({ me, onLogout }) {
     ['dashboard', '📊', 'Dashboard'],
     ['conversations', '💬', 'Percakapan'],
     ['contacts', '👥', 'Kontak'],
-    ...(me.is_admin ? [['agents', '🧑‍💼', 'Agen'], ['templates', '📄', 'Template'], ['settings', '⚙️', 'Setting']] : []),
+    ...(me.is_admin ? [['agents', '🧑‍💼', 'Agen'], ['templates', '📄', 'Template'], ['channels', '📱', 'Nomor'], ['settings', '⚙️', 'Setting']] : []),
   ];
 
   const openChat = (wa) => { setActive(wa); setNav('conversations'); };
@@ -64,6 +65,7 @@ export default function Shell({ me, onLogout }) {
         {nav === 'contacts' && <Contacts onOpen={openChat} />}
         {nav === 'agents' && <Agents me={me} />}
         {nav === 'templates' && <Templates />}
+        {nav === 'channels' && <Channels />}
         {nav === 'settings' && <Settings />}
       </main>
     </div>

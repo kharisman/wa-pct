@@ -14,9 +14,12 @@ export default function Templates() {
   const [hFile, setHFile] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [channels, setChannels] = useState([]);
+  const [chId, setChId] = useState('');
 
-  const load = () => api('/templates/all').then((d) => setList(d.error ? [] : d));
-  useEffect(() => { load(); }, []);
+  const load = () => api('/templates/all' + (chId ? '?channel_id=' + chId : '')).then((d) => setList(d.error ? [] : d));
+  useEffect(() => { api('/channels').then((c) => { setChannels(c); if (c[0]) setChId(String(c[0].id)); }); }, []);
+  useEffect(() => { if (chId) load(); }, [chId]);
 
   // jumlah variabel {{1}}.. di body
   const nVars = (f.body.match(/\{\{\d+\}\}/g) || []).length;
@@ -31,6 +34,7 @@ export default function Templates() {
       const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result.split(',')[1]); r.readAsDataURL(hFile); });
       payload.headerMedia = { mime: hFile.type, data };
     }
+    if (chId) payload.channel_id = chId;
     const res = await post('/templates', payload);
     const d = await res.json();
     setBusy(false);
@@ -44,6 +48,15 @@ export default function Templates() {
   return (
     <div className="page">
       <h1 className="page-title">Template Pesan</h1>
+
+      {channels.length > 1 && (
+        <div className="field" style={{ maxWidth: 260 }}>
+          <label>Nomor / WABA</label>
+          <select value={chId} onChange={(e) => setChId(e.target.value)}>
+            {channels.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </div>
+      )}
 
       <div className="card">
         <h2>Buat template baru</h2>
