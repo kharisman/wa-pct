@@ -127,13 +127,13 @@ export async function initChannels() {
   )`);
   await q('ALTER TABLE contacts ADD COLUMN IF NOT EXISTS channel_id int');
   await q('ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id int');
+  await q('ALTER TABLE channels ADD COLUMN IF NOT EXISTS ai_enabled int DEFAULT 0');
 }
-export const listChannels = async () =>
-  (await q('SELECT id, label, phone_id, waba_id, token FROM channels ORDER BY id')).rows;
-export const getChannel = async (id) =>
-  (await q('SELECT id, label, phone_id, waba_id, token FROM channels WHERE id=$1', [id])).rows[0];
-export const getChannelByPhone = async (phoneId) =>
-  (await q('SELECT id, label, phone_id, waba_id, token FROM channels WHERE phone_id=$1', [phoneId])).rows[0];
+const CH_COLS = 'id, label, phone_id, waba_id, token, ai_enabled';
+export const listChannels = async () => (await q(`SELECT ${CH_COLS} FROM channels ORDER BY id`)).rows;
+export const getChannel = async (id) => (await q(`SELECT ${CH_COLS} FROM channels WHERE id=$1`, [id])).rows[0];
+export const getChannelByPhone = async (phoneId) => (await q(`SELECT ${CH_COLS} FROM channels WHERE phone_id=$1`, [phoneId])).rows[0];
+export const setChannelAi = (id, on) => q('UPDATE channels SET ai_enabled=$1 WHERE id=$2', [on ? 1 : 0, id]);
 export const createChannel = async ({ label, phone_id, waba_id, token }) =>
   (await q('INSERT INTO channels(label,phone_id,waba_id,token,created_at) VALUES($1,$2,$3,$4,$5) RETURNING id',
     [label, phone_id, waba_id, token ?? null, Date.now()])).rows[0].id;

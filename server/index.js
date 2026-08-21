@@ -6,7 +6,7 @@ import {
   upsertContact, insertMessage, updateStatus,
   listConversations, listMessages, getContact, updateContact, initDb, stats, agentReport, pipelineFunnel,
   initTplMedia, setTplMedia, getTplMedia,
-  initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel,
+  initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel, setChannelAi,
   setContactChannel, q,
   initPipelines, listPipelines, createPipeline, updatePipeline, deletePipeline,
   initQuickReplies, listQuickReplies, createQuickReply, deleteQuickReply,
@@ -71,8 +71,8 @@ app.post('/webhook', (req, res) => {
           const before = await getContact(m.from); // ada sebelumnya? (buat deteksi kontak baru)
           await upsertContact(m.from, profileName, channelId);
           if (autoAssign && !before?.assignee) await assignRoundRobin(m.from);
-          // greeting otomatis: cuma sekali, saat kontak pertama kali chat
-          if (autoReply && autoReplyText && !before) {
+          // greeting otomatis: cuma sekali, saat kontak pertama kali chat (skip kalau AI aktif)
+          if (autoReply && autoReplyText && !before && !ch?.ai_enabled) {
             try {
               const wid = await sendText(ch, m.from, autoReplyText);
               const aid = await insertMessage({ waId: m.from, direction: 'out', body: autoReplyText, waMsgId: wid, status: 'sent', sentBy: 'Auto', channelId });
@@ -88,6 +88,20 @@ app.post('/webhook', (req, res) => {
           }
           const id = await insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl, channelId });
           broadcast({ kind: 'message', wa_id: m.from, name: profileName, message: { id, direction: 'in', body, type: m.type, media_url: mediaUrl, created_at: Date.now() } });
+          // AI otomatis balas kalau nomor ini AI-nya aktif (cuma pesan teks)
+          if (ch?.ai_enabled && m.type === 'text') {
+            try {
+              const system = await getSetting('AI_SYSTEM');
+              const hist = (await listMessages(m.from)).filter((x) => x.direction !== 'note').slice(-20)
+                .map((x) => ({ role: x.direction === 'in' ? 'user' : 'assistant', content: x.body || '' }));
+              const reply = await aiReply(system, hist);
+              if (reply) {
+                const wid = await sendText(ch, m.from, reply);
+                const rid = await insertMessage({ waId: m.from, direction: 'out', body: reply, waMsgId: wid, status: 'sent', sentBy: 'AI', channelId });
+                broadcast({ kind: 'message', wa_id: m.from, message: { id: rid, direction: 'out', body: reply, type: 'text', status: 'sent', sent_by: 'AI', created_at: Date.now() } });
+              }
+            } catch (e) { console.error('AI auto-reply gagal', e.message); }
+          }
         }
         for (const s of v.statuses ?? []) {
           if (s.status === 'failed') console.error('SEND FAILED:', JSON.stringify(s.errors));
@@ -247,7 +261,7 @@ app.delete('/api/pipelines/:id', requireAdmin, async (req, res) => {
 // ===== Kelola nomor (channels) =====
 app.get('/api/channels', async (_req, res) => {
   const rows = await listChannels();
-  res.json(rows.map((c) => ({ id: c.id, label: c.label, phone_id: c.phone_id, waba_id: c.waba_id, hasToken: !!c.token })));
+  res.json(rows.map((c) => ({ id: c.id, label: c.label, phone_id: c.phone_id, waba_id: c.waba_id, hasToken: !!c.token, ai_enabled: !!c.ai_enabled })));
 });
 app.post('/api/channels', requireAdmin, async (req, res) => {
   const { label, phone_id, waba_id, token } = req.body;
@@ -257,6 +271,9 @@ app.post('/api/channels', requireAdmin, async (req, res) => {
 });
 app.delete('/api/channels/:id', requireAdmin, async (req, res) => {
   await deleteChannel(req.params.id); res.json({ ok: true });
+});
+app.post('/api/channels/:id/ai', requireAdmin, async (req, res) => {
+  await setChannelAi(req.params.id, req.body.on); res.json({ on: !!req.body.on });
 });
 
 app.get('/api/templates', async (req, res) => {

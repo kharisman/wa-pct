@@ -19,20 +19,26 @@ export default function Channels() {
     if (!confirm('Hapus nomor ini? Chat lamanya tetap ada tapi tak bisa balas via nomor ini.')) return;
     await fetch('/api/channels/' + id, { method: 'DELETE' }); load();
   };
+  const toggleAi = async (c) => { await post('/channels/' + c.id + '/ai', { on: !c.ai_enabled }); load(); };
 
   return (
     <div className="page">
       <h1 className="page-title">Nomor WhatsApp <small>({rows.length})</small></h1>
       <div className="card nopad">
         <table className="tbl">
-          <thead><tr><th>Label</th><th>Phone ID</th><th>WABA ID</th><th>Token</th><th></th></tr></thead>
+          <thead><tr><th>Label</th><th>Phone ID</th><th>Token</th><th>AI otomatis</th><th></th></tr></thead>
           <tbody>
             {rows.map((c) => (
               <tr key={c.id}>
                 <td><b>{c.label}</b></td>
                 <td className="mono">{c.phone_id}</td>
-                <td className="mono">{c.waba_id}</td>
                 <td>{c.hasToken ? '✓ sendiri' : 'global'}</td>
+                <td>
+                  <label className="ai-toggle">
+                    <input type="checkbox" checked={c.ai_enabled} onChange={() => toggleAi(c)} />
+                    <span>{c.ai_enabled ? '🤖 ON' : 'OFF'}</span>
+                  </label>
+                </td>
                 <td><button className="link" onClick={() => del(c.id)}>hapus</button></td>
               </tr>
             ))}
@@ -53,7 +59,8 @@ export default function Channels() {
         </form>
       </div>
 
-      <p className="muted" style={{ fontSize: 13 }}>💡 Webhook Meta cukup satu (URL sama) — semua nomor dalam app ini masuk ke sini. Pastikan tiap WABA ter-subscribe ke app.</p>
+      <p className="muted" style={{ fontSize: 13 }}>💡 Webhook Meta cukup satu (URL sama) — semua nomor masuk ke sini. Pastikan tiap WABA ter-subscribe ke app.</p>
+      <p className="muted" style={{ fontSize: 13 }}>🤖 <b>AI otomatis ON</b> = chat masuk ke nomor itu dibalas AI otomatis (pakai peran AI di Setting). OFF = manual (agen tetap bisa pakai tombol 🤖 buat draft).</p>
     </div>
   );
 }
