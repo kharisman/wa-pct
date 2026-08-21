@@ -64,8 +64,11 @@ export default function Pipeline({ me, onOpen }) {
                 {items.map((c) => (
                   <div key={c.wa_id} className="kcard" draggable
                     onDragStart={() => setDrag(c.wa_id)} onClick={() => onOpen(c.wa_id)}>
-                    <b>{c.name || c.wa_id}</b>
-                    <div className="kcard-last">{c.last_body}</div>
+                    <div className="kcard-top">
+                      <span className="kava">{(c.name || c.wa_id).trim()[0]?.toUpperCase() || '?'}</span>
+                      <b>{c.name || c.wa_id}</b>
+                    </div>
+                    <div className="kcard-last">{c.last_body || '—'}</div>
                     <div className="kcard-foot">
                       {JSON.parse(c.labels || '[]').slice(0, 2).map((l) => <span key={l} className="chip mini">{l}</span>)}
                       {c.assignee && <span className="who">{c.assignee.split('@')[0]}</span>}
