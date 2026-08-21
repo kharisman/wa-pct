@@ -2,14 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api, post } from '../api.js';
 import Media from '../components/Media.jsx';
 import ContactPanel from '../components/ContactPanel.jsx';
-import Broadcast from '../components/Broadcast.jsx';
 import SendTemplate from '../components/SendTemplate.jsx';
 
 export default function Conversations({ me, active, setActive }) {
   const [convs, setConvs] = useState([]);
   const [users, setUsers] = useState([]);
   const [filter, setFilter] = useState('all');
-  const [showBc, setShowBc] = useState(false);
   const [showTpl, setShowTpl] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -132,7 +130,6 @@ export default function Conversations({ me, active, setActive }) {
               <button key={k} className={filter === k ? 'tab active' : 'tab'} onClick={() => setFilter(k)}>{label}</button>
             ))}
           </div>
-          <button className="link" title="Broadcast" onClick={() => setShowBc(true)}>📢</button>
         </div>
         {shown.map((c) => (
           <div key={c.wa_id} className={'conv' + (c.wa_id === active ? ' active' : '') + (needsReply(c) ? ' needs-reply' : '')} onClick={() => setActive(c.wa_id)}>
@@ -204,7 +201,6 @@ export default function Conversations({ me, active, setActive }) {
       )}
 
       {active && <ContactPanel key={active} waId={active} users={users} onChange={loadConvs} />}
-      {showBc && <Broadcast recipients={convs} onClose={() => setShowBc(false)} />}
       {showTpl && active && <SendTemplate waId={active} onClose={() => setShowTpl(false)} onSent={loadConvs} />}
       {showNote && active && (
         <div className="modal-bg" onClick={() => setShowNote(false)}>

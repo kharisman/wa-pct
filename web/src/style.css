@@ -272,3 +272,19 @@ body { color: #1b2340; }
 .sbtn:hover { background: #f0f3f9; }
 .sbtn:disabled { opacity: .35; cursor: default; }
 .sbtn.del { color: #dc2626; border-color: #f0caca; }
+
+/* Broadcast page */
+.bc-page { max-width: 1000px; }
+.bc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.bc-count { background: #152159; color: #fff; border-radius: 20px; padding: 1px 10px; font-size: 13px; margin-left: 6px; }
+.bc-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.bc-filters .field { flex: 1; min-width: 120px; margin: 0; }
+.bc-filters .field span { display: block; font-size: 11px; color: #888; margin-bottom: 4px; font-weight: 600; }
+.bc-filters select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 7px; font: inherit; }
+.bc-list { max-height: 340px; overflow-y: auto; border: 1px solid #eef0f4; border-radius: 8px; }
+.bc-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #f2f2f2; cursor: pointer; font-size: 13px; }
+.bc-item:hover { background: #f7f8fa; }
+.bc-item.off { opacity: .45; }
+.bc-name { font-weight: 600; }
+.bc-num { color: #999; font-size: 12px; margin-left: auto; }
+@media (max-width: 760px) { .bc-grid { grid-template-columns: 1fr; } }

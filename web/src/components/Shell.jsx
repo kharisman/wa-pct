@@ -3,6 +3,7 @@ import Dashboard from '../pages/Dashboard.jsx';
 import Conversations from '../pages/Conversations.jsx';
 import Contacts from '../pages/Contacts.jsx';
 import Pipeline from '../pages/Pipeline.jsx';
+import BroadcastPage from '../pages/BroadcastPage.jsx';
 import Agents from '../pages/Agents.jsx';
 import Templates from '../pages/Templates.jsx';
 import QuickReplies from '../pages/QuickReplies.jsx';
@@ -47,6 +48,7 @@ export default function Shell({ me, onLogout }) {
     ['conversations', '💬', 'Percakapan'],
     ['contacts', '👥', 'Kontak'],
     ['pipeline', '🎯', 'Pipeline'],
+    ['broadcast', '📢', 'Broadcast'],
     ...(me.is_admin ? [['reports', '📈', 'Laporan'], ['agents', '🧑‍💼', 'Agen'], ['templates', '📄', 'Template'], ['quick', '⚡', 'Balasan Cepat'], ['channels', '📱', 'Nomor'], ['settings', '⚙️', 'Setting']] : []),
   ];
 
@@ -79,6 +81,7 @@ export default function Shell({ me, onLogout }) {
         {nav === 'conversations' && <Conversations me={me} active={active} setActive={setActive} />}
         {nav === 'contacts' && <Contacts onOpen={openChat} />}
         {nav === 'pipeline' && <Pipeline me={me} onOpen={openChat} />}
+        {nav === 'broadcast' && <BroadcastPage />}
         {nav === 'reports' && <Reports />}
         {nav === 'agents' && <Agents me={me} />}
         {nav === 'templates' && <Templates />}
