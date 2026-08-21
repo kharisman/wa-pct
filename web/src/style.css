@@ -234,3 +234,7 @@ body { color: #1b2340; }
 .quick-empty { padding: 12px; color: #999; font-size: 13px; }
 .conv.needs-reply { border-left: 3px solid #e0483d; }
 .sla-badge { float: right; background: #fdecea; color: #c0392b; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 8px; }
+.rem-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 12px; background: #fff8e6; border: 1px solid #f0e2b0; border-radius: 6px; padding: 5px 8px; margin-bottom: 4px; }
+.rem-form { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.rem-form input { padding: 7px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+.rem-form button { padding: 7px; border: 0; border-radius: 6px; background: #152159; color: #fff; cursor: pointer; font-weight: 600; }

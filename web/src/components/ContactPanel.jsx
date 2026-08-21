@@ -1,16 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { api, patch } from '../api.js';
+import { api, patch, post } from '../api.js';
 
 export default function ContactPanel({ waId, users, onChange }) {
   const [c, setC] = useState(null);
   const [saved, setSaved] = useState(false);
   const [tag, setTag] = useState('');
   const [pipes, setPipes] = useState([]);
+  const [rem, setRem] = useState([]);
+  const [rf, setRf] = useState({ at: '', note: '' });
 
   useEffect(() => {
     fetch('/api/contact/' + waId).then((r) => r.json()).then((d) => setC({ labels: '[]', ...d }));
+    api('/reminders/' + waId).then(setRem);
   }, [waId]);
   useEffect(() => { api('/pipelines').then(setPipes); }, []);
+
+  const addRem = async (e) => {
+    e.preventDefault();
+    if (!rf.at) return;
+    await post('/reminders', { wa_id: waId, remind_at: new Date(rf.at).getTime(), note: rf.note });
+    setRf({ at: '', note: '' }); api('/reminders/' + waId).then(setRem);
+  };
+  const delRem = async (id) => { await fetch('/api/reminders/' + id, { method: 'DELETE' }); api('/reminders/' + waId).then(setRem); };
 
   const save = async (body) => {
     const res = await patch('/contact/' + waId, body);
@@ -59,6 +70,19 @@ export default function ContactPanel({ waId, users, onChange }) {
 
       <label>Catatan</label>
       <textarea defaultValue={c.notes || ''} onBlur={(e) => e.target.value !== (c.notes || '') && save({ notes: e.target.value })} />
+
+      <label>Follow-up terjadwal</label>
+      {rem.filter((r) => !r.done).map((r) => (
+        <div key={r.id} className="rem-row">
+          <span>⏰ {new Date(Number(r.remind_at)).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}{r.note ? ' — ' + r.note : ''}</span>
+          <button className="link" onClick={() => delRem(r.id)}>×</button>
+        </div>
+      ))}
+      <form onSubmit={addRem} className="rem-form">
+        <input type="datetime-local" value={rf.at} onChange={(e) => setRf({ ...rf, at: e.target.value })} />
+        <input placeholder="catatan (opsional)" value={rf.note} onChange={(e) => setRf({ ...rf, note: e.target.value })} />
+        <button>Set pengingat</button>
+      </form>
 
       {saved && <div className="saved">✓ tersimpan</div>}
     </div>

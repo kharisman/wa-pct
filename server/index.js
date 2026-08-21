@@ -10,6 +10,7 @@ import {
   initPipelines, listPipelines, createPipeline, updatePipeline, deletePipeline,
   initQuickReplies, listQuickReplies, createQuickReply, deleteQuickReply,
   getSetting, setSetting, assignRoundRobin,
+  initReminders, createReminder, listReminders, dueReminders, markReminderDone, deleteReminder,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
@@ -159,6 +160,25 @@ app.patch('/api/settings', requireAdmin, async (req, res) => {
   await setConfig(req.body);
   res.json(getConfigView());
 });
+
+// ===== Follow-up terjadwal =====
+app.get('/api/reminders/:waId', async (req, res) => res.json(await listReminders(req.params.waId)));
+app.post('/api/reminders', async (req, res) => {
+  const { wa_id, remind_at, note } = req.body;
+  if (!wa_id || !remind_at) return res.status(400).json({ error: 'wa_id & waktu wajib' });
+  res.json({ id: await createReminder(wa_id, remind_at, note || '', req.user.name) });
+});
+app.delete('/api/reminders/:id', async (req, res) => { await deleteReminder(req.params.id); res.json({ ok: true }); });
+
+// scheduler: cek reminder jatuh tempo tiap menit
+setInterval(async () => {
+  try {
+    for (const r of await dueReminders()) {
+      broadcast({ kind: 'reminder', wa_id: r.wa_id, note: r.note, by: r.created_by });
+      await markReminderDone(r.id);
+    }
+  } catch (e) { console.error('reminder tick', e.message); }
+}, 60000);
 
 // ===== Auto-assign toggle =====
 app.get('/api/auto-assign', async (_req, res) => res.json({ on: (await getSetting('AUTO_ASSIGN')) === '1' }));
@@ -329,6 +349,7 @@ await initTplMedia();
 await initChannels();
 await initPipelines();
 await initQuickReplies();
+await initReminders();
 await initAuth();
 await loadConfig();
 if ((await listPipelines()).length === 0) {

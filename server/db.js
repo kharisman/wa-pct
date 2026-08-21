@@ -131,6 +131,19 @@ export const deleteChannel = (id) => q('DELETE FROM channels WHERE id=$1', [id])
 export const setContactChannel = (waId, channelId) =>
   q('UPDATE contacts SET channel_id=$1 WHERE wa_id=$2 AND channel_id IS NULL', [channelId, waId]);
 
+// ===== Follow-up terjadwal (reminders) =====
+export async function initReminders() {
+  await q('CREATE TABLE IF NOT EXISTS reminders (id serial PRIMARY KEY, wa_id text, remind_at bigint, note text, created_by text, done int DEFAULT 0, created_at bigint NOT NULL)');
+}
+export const createReminder = async (waId, remindAt, note, by) =>
+  (await q('INSERT INTO reminders(wa_id,remind_at,note,created_by,created_at) VALUES($1,$2,$3,$4,$5) RETURNING id', [waId, remindAt, note, by, Date.now()])).rows[0].id;
+export const listReminders = async (waId) =>
+  (await q('SELECT id, remind_at, note, created_by, done FROM reminders WHERE wa_id=$1 ORDER BY remind_at', [waId])).rows;
+export const dueReminders = async () =>
+  (await q('SELECT id, wa_id, note, created_by FROM reminders WHERE done=0 AND remind_at<=$1', [Date.now()])).rows;
+export const markReminderDone = (id) => q('UPDATE reminders SET done=1 WHERE id=$1', [id]);
+export const deleteReminder = (id) => q('DELETE FROM reminders WHERE id=$1', [id]);
+
 // ===== Setting generik (key/value di tabel settings) =====
 export const getSetting = async (k) => (await q('SELECT value FROM settings WHERE key=$1', [k])).rows[0]?.value;
 export const setSetting = (k, v) => q('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value', [k, String(v)]);

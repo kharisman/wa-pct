@@ -21,6 +21,14 @@ export default function Shell({ me, onLogout }) {
     const es = new EventSource('/api/stream');
     es.onmessage = (e) => {
       const ev = JSON.parse(e.data);
+      if (ev.kind === 'reminder') {
+        const open = () => { window.focus(); setActive(ev.wa_id); setNav('conversations'); };
+        if (Notification.permission === 'granted') {
+          const n = new Notification('⏰ Follow-up: ' + ev.wa_id, { body: ev.note || 'Waktunya hubungi kontak ini', tag: 'rem' + ev.wa_id });
+          n.onclick = () => { open(); n.close(); };
+        } else alert('⏰ Follow-up: ' + ev.wa_id + (ev.note ? ' — ' + ev.note : ''));
+        return;
+      }
       if (ev.kind !== 'message' || ev.message.direction !== 'in') return;
       if (Notification.permission !== 'granted') return;
       if (!document.hidden && ev.wa_id === activeRef.current) return; // lagi buka chat itu → skip
