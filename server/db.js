@@ -131,6 +131,21 @@ export const deleteChannel = (id) => q('DELETE FROM channels WHERE id=$1', [id])
 export const setContactChannel = (waId, channelId) =>
   q('UPDATE contacts SET channel_id=$1 WHERE wa_id=$2 AND channel_id IS NULL', [channelId, waId]);
 
+// ===== Setting generik (key/value di tabel settings) =====
+export const getSetting = async (k) => (await q('SELECT value FROM settings WHERE key=$1', [k])).rows[0]?.value;
+export const setSetting = (k, v) => q('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value', [k, String(v)]);
+
+// Auto-assign round-robin ke agen (kalau kontak belum ada yang pegang)
+export async function assignRoundRobin(waId) {
+  const agents = (await q('SELECT email FROM users ORDER BY created_at')).rows.map((r) => r.email);
+  if (!agents.length) return null;
+  const n = parseInt((await getSetting('RR_COUNTER')) || '0', 10);
+  const email = agents[n % agents.length];
+  await setSetting('RR_COUNTER', n + 1);
+  await q("UPDATE contacts SET assignee=$1 WHERE wa_id=$2 AND (assignee IS NULL OR assignee='')", [email, waId]);
+  return email;
+}
+
 // ===== Balasan cepat (snippet) =====
 export async function initQuickReplies() {
   await q('CREATE TABLE IF NOT EXISTS quick_replies (id serial PRIMARY KEY, title text, body text, created_at bigint NOT NULL)');

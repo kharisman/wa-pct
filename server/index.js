@@ -9,6 +9,7 @@ import {
   setContactChannel, q,
   initPipelines, listPipelines, createPipeline, updatePipeline, deletePipeline,
   initQuickReplies, listQuickReplies, createQuickReply, deleteQuickReply,
+  getSetting, setSetting, assignRoundRobin,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
@@ -51,8 +52,13 @@ app.post('/webhook', (req, res) => {
         const profileName = v.contacts?.[0]?.profile?.name;
         const ch = await getChannelByPhone(v.metadata?.phone_number_id); // nomor mana yg nerima
         const channelId = ch?.id ?? null;
+        const autoAssign = (await getSetting('AUTO_ASSIGN')) === '1';
         for (const m of v.messages ?? []) {
           await upsertContact(m.from, profileName, channelId);
+          if (autoAssign) {
+            const c = await getContact(m.from);
+            if (!c?.assignee) await assignRoundRobin(m.from);
+          }
           const media = m[m.type]; // image/audio/video/document/sticker: {id, mime_type, caption?, filename?}
           let body = m.text?.body ?? media?.caption ?? media?.filename ?? `[${m.type}]`;
           let mediaUrl = null;
@@ -145,6 +151,10 @@ app.patch('/api/settings', requireAdmin, async (req, res) => {
   await setConfig(req.body);
   res.json(getConfigView());
 });
+
+// ===== Auto-assign toggle =====
+app.get('/api/auto-assign', async (_req, res) => res.json({ on: (await getSetting('AUTO_ASSIGN')) === '1' }));
+app.post('/api/auto-assign', requireAdmin, async (req, res) => { await setSetting('AUTO_ASSIGN', req.body.on ? '1' : '0'); res.json({ on: !!req.body.on }); });
 
 // ===== Balasan cepat =====
 app.get('/api/quick-replies', async (_req, res) => res.json(await listQuickReplies()));
