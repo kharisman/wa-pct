@@ -26,8 +26,17 @@ export default function Conversations({ me, active, setActive }) {
   const loadUsers = () => api('/users').then(setUsers);
   useEffect(() => { loadConvs(); loadUsers(); }, []);
 
+  const SLA_MIN = 15;
+  const [, setTick] = useState(0);
+  useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
+  const needsReply = (c) => c.last_dir === 'in' && Date.now() - c.last_at > SLA_MIN * 60000;
+  const mins = (c) => Math.floor((Date.now() - c.last_at) / 60000);
+
   const shown = convs.filter((c) =>
-    filter === 'all' ? true : filter === 'mine' ? c.assignee === me.email : !c.assignee);
+    filter === 'mine' ? c.assignee === me.email
+      : filter === 'unassigned' ? !c.assignee
+        : filter === 'unreplied' ? needsReply(c)
+          : true);
 
   useEffect(() => { if (active) api('/messages/' + active).then(setMsgs); else setMsgs([]); }, [active]);
 
@@ -92,15 +101,17 @@ export default function Conversations({ me, active, setActive }) {
       <div className="list">
         <div className="topbar">
           <div className="tabs">
-            {[['all', 'Semua'], ['mine', 'Saya'], ['unassigned', 'Belum']].map(([k, label]) => (
+            {[['all', 'Semua'], ['mine', 'Saya'], ['unassigned', 'Belum'], ['unreplied', 'Perlu dibalas']].map(([k, label]) => (
               <button key={k} className={filter === k ? 'tab active' : 'tab'} onClick={() => setFilter(k)}>{label}</button>
             ))}
           </div>
           <button className="link" title="Broadcast" onClick={() => setShowBc(true)}>📢</button>
         </div>
         {shown.map((c) => (
-          <div key={c.wa_id} className={'conv' + (c.wa_id === active ? ' active' : '')} onClick={() => setActive(c.wa_id)}>
-            <div className="name">{c.name || c.wa_id}{c.assignee && <span className="who"> · {c.assignee === me.email ? 'saya' : c.assignee.split('@')[0]}</span>}</div>
+          <div key={c.wa_id} className={'conv' + (c.wa_id === active ? ' active' : '') + (needsReply(c) ? ' needs-reply' : '')} onClick={() => setActive(c.wa_id)}>
+            <div className="name">{c.name || c.wa_id}{c.assignee && <span className="who"> · {c.assignee === me.email ? 'saya' : c.assignee.split('@')[0]}</span>}
+              {needsReply(c) && <span className="sla-badge">⏱ {mins(c)}m</span>}
+            </div>
             {c.channel_label && <span className="chan-badge">📱 {c.channel_label}</span>}
             <div className="last">{c.last_body}</div>
             <div className="labels">{JSON.parse(c.labels || '[]').map((l) => <span key={l} className="chip mini">{l}</span>)}</div>

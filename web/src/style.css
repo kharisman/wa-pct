@@ -232,3 +232,5 @@ body { color: #1b2340; }
 .quick-item b { display: block; font-size: 13px; }
 .quick-item span { color: #888; font-size: 12px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .quick-empty { padding: 12px; color: #999; font-size: 13px; }
+.conv.needs-reply { border-left: 3px solid #e0483d; }
+.sla-badge { float: right; background: #fdecea; color: #c0392b; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 8px; }

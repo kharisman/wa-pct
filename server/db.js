@@ -97,6 +97,7 @@ export const listConversations = async () =>
     SELECT c.wa_id, c.name, c.labels, c.assignee, c.channel_id, c.stage, c.pipeline_id,
            ch.label AS channel_label,
            (SELECT body FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_body,
+           (SELECT direction FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_dir,
            (SELECT created_at FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_at
     FROM contacts c LEFT JOIN channels ch ON ch.id=c.channel_id ORDER BY last_at DESC NULLS LAST
   `)).rows;
