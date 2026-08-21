@@ -260,25 +260,37 @@ app.get('/api/templates/all', requireAdmin, async (req, res) => {
 });
 app.post('/api/templates', requireAdmin, async (req, res) => {
   try {
-    const ch = await pickChannel({ channel_id: req.body.channel_id });
-    let header = req.body.header;
-    // header media: frontend kirim base64 -> upload sample -> handle
-    let savedImg = null;
-    if (req.body.headerMedia?.data) {
-      const buf = Buffer.from(req.body.headerMedia.data, 'base64');
-      const mime = req.body.headerMedia.mime;
-      const handle = await uploadSampleMedia(ch, buf, mime);
-      const type = mime.startsWith('image/') ? 'IMAGE' : mime.startsWith('video/') ? 'VIDEO' : 'DOCUMENT';
-      header = { type, handle };
-      // simpan gambar sbg default template ini (biar auto ikut saat kirim)
-      if (type === 'IMAGE') {
-        const ext = (mime.split('/')[1] || 'jpg').slice(0, 5);
-        savedImg = { path: `tpl-${req.body.name}.${ext}`, mime, buf };
-      }
+    // target: satu channel, atau semua WABA berbeda (all_channels)
+    let targets;
+    if (req.body.all_channels) {
+      const seen = new Set();
+      targets = (await listChannels()).filter((c) => (seen.has(c.waba_id) ? false : seen.add(c.waba_id)));
+    } else {
+      targets = [await pickChannel({ channel_id: req.body.channel_id })];
     }
-    const out = await createTemplate(ch, { ...req.body, header });
-    if (savedImg) { await storeMedia(savedImg.path, savedImg.buf, savedImg.mime); await setTplMedia(req.body.name, savedImg.path, savedImg.mime); }
-    res.json(out);
+
+    const md = req.body.headerMedia;
+    const buf = md?.data ? Buffer.from(md.data, 'base64') : null;
+    const type = md ? (md.mime.startsWith('image/') ? 'IMAGE' : md.mime.startsWith('video/') ? 'VIDEO' : 'DOCUMENT') : null;
+
+    // simpan gambar default sekali (dipakai lintas nomor saat kirim)
+    if (buf && type === 'IMAGE') {
+      const ext = (md.mime.split('/')[1] || 'jpg').slice(0, 5);
+      await storeMedia(`tpl-${req.body.name}.${ext}`, buf, md.mime);
+      await setTplMedia(req.body.name, `tpl-${req.body.name}.${ext}`, md.mime);
+    }
+
+    const results = [];
+    for (const t of targets) {
+      try {
+        let header = req.body.header;
+        if (buf) header = { type, handle: await uploadSampleMedia(t, buf, md.mime) };
+        await createTemplate(t, { ...req.body, header });
+        results.push({ channel: t.label, ok: true });
+      } catch (e) { results.push({ channel: t.label, ok: false, error: e.message }); }
+    }
+    const okAll = results.every((r) => r.ok);
+    res.status(okAll ? 200 : 207).json({ results, error: okAll ? undefined : results.filter((r) => !r.ok).map((r) => `${r.channel}: ${r.error}`).join('; ') });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 

@@ -16,6 +16,7 @@ export default function Templates() {
   const [busy, setBusy] = useState(false);
   const [channels, setChannels] = useState([]);
   const [chId, setChId] = useState('');
+  const [allCh, setAllCh] = useState(false);
 
   const load = () => api('/templates/all' + (chId ? '?channel_id=' + chId : '')).then((d) => setList(d.error ? [] : d));
   useEffect(() => { api('/channels').then((c) => { setChannels(c); if (c[0]) setChId(String(c[0].id)); }); }, []);
@@ -34,12 +35,12 @@ export default function Templates() {
       const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result.split(',')[1]); r.readAsDataURL(hFile); });
       payload.headerMedia = { mime: hFile.type, data };
     }
-    if (chId) payload.channel_id = chId;
+    if (allCh) payload.all_channels = true; else if (chId) payload.channel_id = chId;
     const res = await post('/templates', payload);
     const d = await res.json();
     setBusy(false);
-    if (!res.ok) return setMsg({ err: d.error });
-    setMsg({ ok: 'Template dikirim ke Meta — status PENDING, tunggu approval.' });
+    if (!res.ok || d.error) return setMsg({ err: d.error || 'gagal' });
+    setMsg({ ok: (allCh ? 'Dibuat di semua nomor. ' : '') + 'Template dikirim ke Meta — status PENDING, tunggu approval.' });
     setF({ name: '', category: 'UTILITY', language: 'id', body: '', footer: '' });
     setExamples([]); setButtons([]); setHType('NONE'); setHText(''); setHFile(null);
     load();
@@ -50,11 +51,14 @@ export default function Templates() {
       <h1 className="page-title">Template Pesan</h1>
 
       {channels.length > 1 && (
-        <div className="field" style={{ maxWidth: 260 }}>
+        <div className="field" style={{ maxWidth: 320 }}>
           <label>Nomor / WABA</label>
-          <select value={chId} onChange={(e) => setChId(e.target.value)}>
+          <select value={chId} onChange={(e) => setChId(e.target.value)} disabled={allCh}>
             {channels.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
+          <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, textTransform: 'none', fontWeight: 400 }}>
+            <input type="checkbox" checked={allCh} onChange={(e) => setAllCh(e.target.checked)} /> Buat untuk semua nomor sekaligus
+          </label>
         </div>
       )}
 
