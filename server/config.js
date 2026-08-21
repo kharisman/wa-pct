@@ -1,7 +1,8 @@
 import { q } from './db.js';
 
 // Key koneksi WA yang bisa diubah dari UI (bukan lagi dari .env)
-export const KEYS = ['WA_TOKEN', 'WA_PHONE_ID', 'WA_WABA_ID', 'WA_VERIFY_TOKEN', 'WA_APP_ID'];
+export const KEYS = ['WA_TOKEN', 'WA_PHONE_ID', 'WA_WABA_ID', 'WA_VERIFY_TOKEN', 'WA_APP_ID', 'WA_APP_SECRET'];
+const SECRET_KEYS = ['WA_TOKEN', 'WA_APP_SECRET'];
 const cache = new Map();
 
 export async function loadConfig() {
@@ -30,5 +31,5 @@ export async function setConfig(obj) {
 // buat UI: token disamarkan, sisanya tampil penuh
 export const getConfigView = () => Object.fromEntries(KEYS.map((k) => {
   const v = cfg(k) || '';
-  return [k, k === 'WA_TOKEN' && v ? `${v.slice(0, 8)}…${v.slice(-4)}` : v];
+  return [k, SECRET_KEYS.includes(k) && v ? `${v.slice(0, 6)}…${v.slice(-4)}` : v];
 }));

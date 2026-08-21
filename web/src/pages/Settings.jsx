@@ -39,6 +39,7 @@ export default function Settings() {
             {F('WA_PHONE_ID', 'Phone Number ID')}
             {F('WA_WABA_ID', 'WhatsApp Business Account ID')}
             {F('WA_APP_ID', 'App ID (buat header media template)')}
+            {F('WA_APP_SECRET', 'App Secret (keamanan webhook)', 'dari Meta App > Settings > Basic. Diisi = webhook diverifikasi tanda tangan.')}
             {F('WA_VERIFY_TOKEN', 'Verify Token (webhook)')}
             <div className="row">
               <button disabled={Object.keys(form).length === 0}>Simpan</button>

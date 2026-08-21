@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import {
@@ -20,7 +21,7 @@ import { readMedia, storeMedia } from './store.js';
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
 const app = express();
-app.use(express.json({ limit: '30mb' })); // ponytail: base64 media inline, cukup buat gambar/dok CRM
+app.use(express.json({ limit: '30mb', verify: (req, _res, buf) => { req.rawBody = buf; } })); // simpan raw buat verifikasi signature
 mountAuth(app);
 
 /* ---- SSE: push pesan baru ke frontend realtime ---- */
@@ -45,6 +46,15 @@ app.get('/webhook', (req, res) => {
 
 /* ---- Webhook receive: pesan masuk + update status ---- */
 app.post('/webhook', (req, res) => {
+  // Verifikasi tanda tangan Meta (x-hub-signature-256) — tolak request palsu
+  const secret = cfg('WA_APP_SECRET');
+  if (secret) {
+    const sig = req.headers['x-hub-signature-256'] || '';
+    const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(req.rawBody || Buffer.from('')).digest('hex');
+    if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      return res.sendStatus(401);
+    }
+  }
   res.sendStatus(200); // balas cepat, proses setelahnya
   (async () => {
     for (const entry of req.body.entry ?? []) {
@@ -332,8 +342,10 @@ app.post('/api/broadcast', async (req, res) => {
 
 /* ---- File media (S3 atau lokal) ---- */
 app.get('/media/:name', async (req, res) => {
+  const name = req.params.name;
+  if (name.includes('/') || name.includes('..') || name.includes('\\')) return res.sendStatus(400); // anti path traversal
   try {
-    const { buffer, contentType } = await readMedia(req.params.name);
+    const { buffer, contentType } = await readMedia(name);
     res.set('Content-Type', contentType).set('Cache-Control', 'public, max-age=31536000').send(buffer);
   } catch { res.sendStatus(404); }
 });
