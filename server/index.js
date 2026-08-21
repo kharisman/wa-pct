@@ -53,11 +53,19 @@ app.post('/webhook', (req, res) => {
         const ch = await getChannelByPhone(v.metadata?.phone_number_id); // nomor mana yg nerima
         const channelId = ch?.id ?? null;
         const autoAssign = (await getSetting('AUTO_ASSIGN')) === '1';
+        const autoReply = (await getSetting('AUTO_REPLY')) === '1';
+        const autoReplyText = await getSetting('AUTO_REPLY_TEXT');
         for (const m of v.messages ?? []) {
+          const before = await getContact(m.from); // ada sebelumnya? (buat deteksi kontak baru)
           await upsertContact(m.from, profileName, channelId);
-          if (autoAssign) {
-            const c = await getContact(m.from);
-            if (!c?.assignee) await assignRoundRobin(m.from);
+          if (autoAssign && !before?.assignee) await assignRoundRobin(m.from);
+          // greeting otomatis: cuma sekali, saat kontak pertama kali chat
+          if (autoReply && autoReplyText && !before) {
+            try {
+              const wid = await sendText(ch, m.from, autoReplyText);
+              const aid = await insertMessage({ waId: m.from, direction: 'out', body: autoReplyText, waMsgId: wid, status: 'sent', sentBy: 'Auto', channelId });
+              broadcast({ kind: 'message', wa_id: m.from, message: { id: aid, direction: 'out', body: autoReplyText, type: 'text', status: 'sent', sent_by: 'Auto', created_at: Date.now() } });
+            } catch (e) { console.error('auto-reply gagal', e.message); }
           }
           const media = m[m.type]; // image/audio/video/document/sticker: {id, mime_type, caption?, filename?}
           let body = m.text?.body ?? media?.caption ?? media?.filename ?? `[${m.type}]`;
@@ -155,6 +163,14 @@ app.patch('/api/settings', requireAdmin, async (req, res) => {
 // ===== Auto-assign toggle =====
 app.get('/api/auto-assign', async (_req, res) => res.json({ on: (await getSetting('AUTO_ASSIGN')) === '1' }));
 app.post('/api/auto-assign', requireAdmin, async (req, res) => { await setSetting('AUTO_ASSIGN', req.body.on ? '1' : '0'); res.json({ on: !!req.body.on }); });
+
+// ===== Auto-reply (greeting) =====
+app.get('/api/auto-reply', async (_req, res) => res.json({ on: (await getSetting('AUTO_REPLY')) === '1', text: (await getSetting('AUTO_REPLY_TEXT')) || '' }));
+app.post('/api/auto-reply', requireAdmin, async (req, res) => {
+  await setSetting('AUTO_REPLY', req.body.on ? '1' : '0');
+  if (req.body.text !== undefined) await setSetting('AUTO_REPLY_TEXT', req.body.text);
+  res.json({ ok: true });
+});
 
 // ===== Balasan cepat =====
 app.get('/api/quick-replies', async (_req, res) => res.json(await listQuickReplies()));

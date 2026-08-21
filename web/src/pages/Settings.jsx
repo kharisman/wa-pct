@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { patch } from '../api.js';
+import { api, patch, post } from '../api.js';
 
 export default function Settings() {
   const [cfg, setCfg] = useState(null);
   const [form, setForm] = useState({});
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => { fetch('/api/settings').then((r) => r.json()).then(setCfg); }, []);
+  const [ar, setAr] = useState({ on: false, text: '' });
+  const [arSaved, setArSaved] = useState(false);
+  useEffect(() => {
+    fetch('/api/settings').then((r) => r.json()).then(setCfg);
+    api('/auto-reply').then(setAr);
+  }, []);
+  const saveAr = async (e) => { e.preventDefault(); await post('/auto-reply', ar); setArSaved(true); setTimeout(() => setArSaved(false), 1500); };
 
   const save = async (e) => {
     e.preventDefault();
@@ -40,6 +46,19 @@ export default function Settings() {
             </div>
           </form>
         )}
+      </div>
+
+      <div className="card">
+        <h2>Balasan otomatis (greeting)</h2>
+        <p className="muted">Dikirim otomatis saat pelanggan chat pertama kali.</p>
+        <form onSubmit={saveAr}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }}>
+            <input type="checkbox" checked={ar.on} onChange={(e) => setAr({ ...ar, on: e.target.checked })} /> <b>Aktifkan</b>
+          </label>
+          <div className="field"><label>Pesan</label>
+            <textarea rows={3} value={ar.text} placeholder="Halo! Terima kasih sudah menghubungi PalComTech. Admin akan segera membalas 🙏" onChange={(e) => setAr({ ...ar, text: e.target.value })} /></div>
+          <div className="row"><button>Simpan</button>{arSaved && <span className="saved">✓ tersimpan</span>}</div>
+        </form>
       </div>
     </div>
   );
