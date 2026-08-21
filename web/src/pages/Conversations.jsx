@@ -85,7 +85,7 @@ export default function Conversations({ me, active, setActive }) {
   };
 
   return (
-    <div className="app">
+    <div className={'app' + (active ? ' has-active' : '')}>
       <div className="list">
         <div className="topbar">
           <div className="tabs">
@@ -109,8 +109,11 @@ export default function Conversations({ me, active, setActive }) {
       {active ? (
         <div className="thread">
           <div className="thread-head">
-            <b>{convs.find((c) => c.wa_id === active)?.name || active}</b>
-            <span className="num">{active}</span>
+            <button className="back-btn" onClick={() => setActive(null)}>←</button>
+            <div>
+              <b>{convs.find((c) => c.wa_id === active)?.name || active}</b>
+              <span className="num">{active}</span>
+            </div>
           </div>
           <div className="msgs">
             {msgs.map((m) => m.direction === 'note' ? (

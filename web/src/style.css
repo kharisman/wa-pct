@@ -197,3 +197,31 @@ body { color: #1b2340; }
 .kempty { color: #bbb; text-align: center; padding: 8px; font-size: 12px; }
 .pipe-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .pipe-bar select { padding: 8px; border: 1px solid #ccc; border-radius: 8px; font: inherit; }
+
+/* ===== Responsive / Mobile ===== */
+.back-btn { display: none; background: none; border: 0; font-size: 22px; cursor: pointer; color: #152159; padding: 0 8px 0 0; }
+.thread-head { display: flex; align-items: center; gap: 4px; }
+@media (max-width: 760px) {
+  .shell { flex-direction: column; }
+  .content { order: 1; height: calc(100vh - 58px); }
+  .sidebar { order: 2; width: 100%; height: 58px; flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; }
+  .sidebar .brand { display: none; }
+  .sidebar nav { flex-direction: row; flex: 0 0 auto; gap: 0; padding: 0 4px; }
+  .navitem { flex-direction: column; gap: 2px; font-size: 10px; padding: 8px 10px; white-space: nowrap; border-radius: 8px; }
+  .navitem .ic { font-size: 19px; width: auto; }
+  .side-foot { border: 0; padding: 0 8px; display: flex; flex-direction: row; align-items: center; gap: 10px; flex: 0 0 auto; }
+  .side-foot .who { display: none; }
+
+  .content .app { grid-template-columns: 1fr; height: calc(100vh - 58px); }
+  .app .thread, .app .panel, .app .empty { display: none; }
+  .app.has-active .list { display: none; }
+  .app.has-active .thread { display: flex; height: 100%; }
+  .back-btn { display: inline-block; }
+
+  .page { padding: 14px; }
+  .page-title { font-size: 19px; }
+  .grid2 { grid-template-columns: 1fr; }
+  .kcol { flex-basis: 78vw; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .tbl th:nth-child(3), .tbl td:nth-child(3) { display: none; } /* sembunyikan kolom label di tabel sempit */
+}
