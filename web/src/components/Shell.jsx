@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Dashboard from '../pages/Dashboard.jsx';
 import Conversations from '../pages/Conversations.jsx';
 import Contacts from '../pages/Contacts.jsx';
@@ -10,16 +10,19 @@ export default function Shell({ me, onLogout }) {
   const [nav, setNav] = useState('conversations');
   const [active, setActive] = useState(null); // wa_id percakapan terbuka
   const [notif, setNotif] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
-  // Notifikasi browser saat ada pesan masuk (tab tidak aktif)
+  // Notifikasi browser saat ada pesan masuk (tab tersembunyi ATAU chat itu tidak sedang dibuka)
   useEffect(() => {
     const es = new EventSource('/api/stream');
     es.onmessage = (e) => {
       const ev = JSON.parse(e.data);
-      if (ev.kind === 'message' && ev.message.direction === 'in' && document.hidden && Notification.permission === 'granted') {
-        const n = new Notification('💬 ' + (ev.name || ev.wa_id), { body: ev.message.body, tag: ev.wa_id });
-        n.onclick = () => window.focus();
-      }
+      if (ev.kind !== 'message' || ev.message.direction !== 'in') return;
+      if (Notification.permission !== 'granted') return;
+      if (!document.hidden && ev.wa_id === activeRef.current) return; // lagi buka chat itu → skip
+      const n = new Notification('💬 ' + (ev.name || ev.wa_id), { body: ev.message.body, tag: ev.wa_id });
+      n.onclick = () => { window.focus(); };
     };
     return () => es.close();
   }, []);
