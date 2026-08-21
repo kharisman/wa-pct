@@ -8,11 +8,15 @@ export default function Settings() {
 
   const [ar, setAr] = useState({ on: false, text: '' });
   const [arSaved, setArSaved] = useState(false);
+  const [aiSys, setAiSys] = useState('');
+  const [aiSaved, setAiSaved] = useState(false);
   useEffect(() => {
     fetch('/api/settings').then((r) => r.json()).then(setCfg);
     api('/auto-reply').then(setAr);
+    api('/ai-config').then((d) => setAiSys(d.system || ''));
   }, []);
   const saveAr = async (e) => { e.preventDefault(); await post('/auto-reply', ar); setArSaved(true); setTimeout(() => setArSaved(false), 1500); };
+  const saveAi = async (e) => { e.preventDefault(); await post('/ai-config', { system: aiSys }); setAiSaved(true); setTimeout(() => setAiSaved(false), 1500); };
 
   const save = async (e) => {
     e.preventDefault();
@@ -47,6 +51,22 @@ export default function Settings() {
             </div>
           </form>
         )}
+      </div>
+
+      <div className="card">
+        <h2>Balas dengan AI (DeepSeek)</h2>
+        <p className="muted">Isi API key & atur peran/aturan AI. Agen klik 🤖 di kotak balas untuk minta draft — AI membaca riwayat percakapan (memori per chat).</p>
+        {cfg && (
+          <form onSubmit={save} style={{ marginBottom: 8 }}>
+            {F('DEEPSEEK_KEY', 'DeepSeek API Key')}
+            <div className="row"><button disabled={!form.DEEPSEEK_KEY}>Simpan key</button></div>
+          </form>
+        )}
+        <form onSubmit={saveAi}>
+          <div className="field"><label>Peran & aturan AI (system prompt)</label>
+            <textarea rows={5} value={aiSys} placeholder="Kamu CS PalComTech yang ramah. Jawab singkat, sopan, Bahasa Indonesia. Jangan menjanjikan harga pasti — arahkan ke admin PMB. Fokus bantu calon mahasiswa." onChange={(e) => setAiSys(e.target.value)} /></div>
+          <div className="row"><button>Simpan peran AI</button>{aiSaved && <span className="saved">✓ tersimpan</span>}</div>
+        </form>
       </div>
 
       <div className="card">

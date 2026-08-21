@@ -86,6 +86,18 @@ export default function Conversations({ me, active, setActive }) {
     } catch (err) { alert('Gagal kirim: ' + err.message); } finally { setSending(false); }
   };
 
+  const [aiBusy, setAiBusy] = useState(false);
+  const aiSuggest = async () => {
+    if (!active) return;
+    setAiBusy(true);
+    try {
+      const res = await post('/ai-suggest', { wa_id: active });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setText(d.text);
+    } catch (e) { alert('AI gagal: ' + e.message); } finally { setAiBusy(false); }
+  };
+
   const sendNote = async () => {
     if (!noteText.trim() || !active) return;
     const res = await post('/note', { wa_id: active, body: noteText });
@@ -182,6 +194,7 @@ export default function Conversations({ me, active, setActive }) {
                 </div>
               )}
             </div>
+            <button type="button" className="attach ai-btn" title="Balas dengan AI" disabled={aiBusy} onClick={aiSuggest}>{aiBusy ? '…' : '🤖'}</button>
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ketik balasan…" />
             <button disabled={sending}>Kirim</button>
           </form>

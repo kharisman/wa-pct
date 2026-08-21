@@ -17,6 +17,7 @@ import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTem
 import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
 import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 import { readMedia, storeMedia } from './store.js';
+import { aiReply } from './ai.js';
 
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
@@ -195,6 +196,20 @@ setInterval(async () => {
 // ===== Auto-assign toggle =====
 app.get('/api/auto-assign', async (_req, res) => res.json({ on: (await getSetting('AUTO_ASSIGN')) === '1' }));
 app.post('/api/auto-assign', requireAdmin, async (req, res) => { await setSetting('AUTO_ASSIGN', req.body.on ? '1' : '0'); res.json({ on: !!req.body.on }); });
+
+// ===== AI (DeepSeek) =====
+app.post('/api/ai-suggest', async (req, res) => {
+  const { wa_id } = req.body;
+  if (!wa_id) return res.status(400).json({ error: 'wa_id wajib' });
+  try {
+    const system = await getSetting('AI_SYSTEM');
+    const msgs = (await listMessages(wa_id)).filter((m) => m.direction !== 'note').slice(-20); // memori per percakapan
+    const history = msgs.map((m) => ({ role: m.direction === 'in' ? 'user' : 'assistant', content: m.body || '' }));
+    res.json({ text: await aiReply(system, history) });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+app.get('/api/ai-config', requireAdmin, async (_req, res) => res.json({ system: (await getSetting('AI_SYSTEM')) || '' }));
+app.post('/api/ai-config', requireAdmin, async (req, res) => { await setSetting('AI_SYSTEM', req.body.system || ''); res.json({ ok: true }); });
 
 // ===== Auto-reply (greeting) =====
 app.get('/api/auto-reply', async (_req, res) => res.json({ on: (await getSetting('AUTO_REPLY')) === '1', text: (await getSetting('AUTO_REPLY_TEXT')) || '' }));
