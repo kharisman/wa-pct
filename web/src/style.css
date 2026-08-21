@@ -264,3 +264,11 @@ body { color: #1b2340; }
 .kcard-top { display: flex; align-items: center; gap: 8px; }
 .kava { width: 28px; height: 28px; flex: none; border-radius: 50%; background: linear-gradient(135deg,#2a3f8f,#4759b3); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .kcard-top b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-edit { display: flex; flex-direction: column; gap: 6px; }
+.stage-row { display: flex; align-items: center; gap: 6px; }
+.stage-num { width: 20px; height: 20px; flex: none; border-radius: 50%; background: #eef1fb; color: #152159; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.stage-row input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+.sbtn { width: 30px; height: 32px; flex: none; border: 1px solid #d7deea; background: #fff; border-radius: 6px; cursor: pointer; color: #152159; font-size: 14px; }
+.sbtn:hover { background: #f0f3f9; }
+.sbtn:disabled { opacity: .35; cursor: default; }
+.sbtn.del { color: #dc2626; border-color: #f0caca; }

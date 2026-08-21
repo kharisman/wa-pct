@@ -3,11 +3,57 @@ import { api, post, patch } from '../api.js';
 
 export const STAGES = ['Baru', 'Dihubungi', 'Tertarik', 'Negosiasi', 'Deal', 'Batal']; // fallback
 
+function PipelineForm({ mode, initial, onSave, onClose }) {
+  const [name, setName] = useState(initial.name || '');
+  const [stages, setStages] = useState(initial.stages?.length ? initial.stages : ['Baru']);
+  const setStage = (i, v) => setStages(stages.map((s, j) => (j === i ? v : s)));
+  const addStage = () => setStages([...stages, '']);
+  const delStage = (i) => setStages(stages.filter((_, j) => j !== i));
+  const moveStage = (i, dir) => {
+    const j = i + dir; if (j < 0 || j >= stages.length) return;
+    const a = [...stages];[a[i], a[j]] = [a[j], a[i]]; setStages(a);
+  };
+  const submit = (e) => {
+    e.preventDefault();
+    const clean = stages.map((s) => s.trim()).filter(Boolean);
+    if (!name.trim() || clean.length === 0) return;
+    onSave({ name: name.trim(), stages: clean });
+  };
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <h2>{mode === 'new' ? 'Pipeline baru' : 'Kelola pipeline'}</h2>
+        <div className="field"><label>Nama pipeline</label>
+          <input autoFocus value={name} placeholder="mis. Pendaftaran" onChange={(e) => setName(e.target.value)} /></div>
+        <label style={{ fontSize: 11, color: '#888', textTransform: 'uppercase' }}>Tahap</label>
+        <div className="stage-edit">
+          {stages.map((s, i) => (
+            <div key={i} className="stage-row">
+              <span className="stage-num">{i + 1}</span>
+              <input value={s} placeholder={'Tahap ' + (i + 1)} onChange={(e) => setStage(i, e.target.value)} />
+              <button type="button" className="sbtn" onClick={() => moveStage(i, -1)} disabled={i === 0}>↑</button>
+              <button type="button" className="sbtn" onClick={() => moveStage(i, 1)} disabled={i === stages.length - 1}>↓</button>
+              <button type="button" className="sbtn del" onClick={() => delStage(i)} disabled={stages.length === 1}>×</button>
+            </div>
+          ))}
+        </div>
+        <button type="button" className="link" onClick={addStage} style={{ alignSelf: 'flex-start' }}>＋ tambah tahap</button>
+        <div className="modal-actions">
+          <button type="button" className="link" onClick={onClose}>Batal</button>
+          <button>Simpan</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function Pipeline({ me, onOpen }) {
   const [pipes, setPipes] = useState([]);
   const [sel, setSel] = useState(null);
   const [rows, setRows] = useState([]);
   const [drag, setDrag] = useState(null);
+  const [form, setForm] = useState(null); // {mode:'new'|'edit'}
+  const [confirmDel, setConfirmDel] = useState(false);
 
   const loadPipes = () => api('/pipelines').then((p) => { setPipes(p); setSel((s) => s || p[0]?.id || null); });
   useEffect(() => { loadPipes(); api('/conversations').then(setRows); }, []);
@@ -21,21 +67,18 @@ export default function Pipeline({ me, onOpen }) {
     await patch('/contact/' + waId, { stage, pipeline_id: sel });
   };
 
-  const addPipe = async () => {
-    const name = prompt('Nama pipeline baru:'); if (!name) return;
-    const st = prompt('Tahap (pisah koma):', 'Baru, Proses, Selesai'); if (!st) return;
-    const res = await post('/pipelines', { name, stages: st.split(',').map((x) => x.trim()).filter(Boolean) });
-    const d = await res.json(); if (res.ok) { await loadPipes(); setSel(d.id); }
-  };
-  const editStages = async () => {
-    const st = prompt('Ubah tahap (pisah koma):', stages.join(', ')); if (!st) return;
-    await patch('/pipelines/' + sel, { stages: st.split(',').map((x) => x.trim()).filter(Boolean) });
-    loadPipes();
+  const savePipe = async ({ name, stages: st }) => {
+    if (form.mode === 'new') {
+      const res = await post('/pipelines', { name, stages: st });
+      const d = await res.json(); if (res.ok) { await loadPipes(); setSel(d.id); }
+    } else {
+      await patch('/pipelines/' + sel, { name, stages: st }); await loadPipes();
+    }
+    setForm(null);
   };
   const delPipe = async () => {
-    if (!confirm('Hapus pipeline "' + current.name + '"? Kontaknya tetap ada.')) return;
     await fetch('/api/pipelines/' + sel, { method: 'DELETE' });
-    setSel(null); loadPipes();
+    setConfirmDel(false); setSel(null); loadPipes();
   };
 
   return (
@@ -46,11 +89,25 @@ export default function Pipeline({ me, onOpen }) {
           {pipes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         {me?.is_admin && <>
-          <button className="link" onClick={addPipe}>＋ Pipeline</button>
-          {current && <button className="link" onClick={editStages}>Kelola tahap</button>}
-          {current && pipes.length > 1 && <button className="link" onClick={delPipe}>Hapus</button>}
+          <button className="link" onClick={() => setForm({ mode: 'new' })}>＋ Pipeline</button>
+          {current && <button className="link" onClick={() => setForm({ mode: 'edit' })}>Kelola tahap</button>}
+          {current && pipes.length > 1 && <button className="link" onClick={() => setConfirmDel(true)}>Hapus</button>}
         </>}
       </div>
+
+      {form && <PipelineForm mode={form.mode} initial={form.mode === 'edit' ? current : { name: '', stages: ['Baru', 'Proses', 'Selesai'] }} onSave={savePipe} onClose={() => setForm(null)} />}
+      {confirmDel && current && (
+        <div className="modal-bg" onClick={() => setConfirmDel(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Hapus pipeline?</h2>
+            <p className="muted" style={{ margin: 0 }}>Pipeline <b>{current.name}</b> akan dihapus. Kontaknya tetap ada.</p>
+            <div className="modal-actions">
+              <button className="link" onClick={() => setConfirmDel(false)}>Batal</button>
+              <button style={{ background: '#dc2626' }} onClick={delPipe}>Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="kanban" style={{ display: 'flex', flexWrap: 'nowrap', gap: 14, overflowX: 'auto', alignItems: 'flex-start' }}>
         {stages.map((st) => {
