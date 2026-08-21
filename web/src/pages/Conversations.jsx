@@ -175,7 +175,7 @@ export default function Conversations({ me, active, setActive }) {
       )}
 
       {active && <ContactPanel key={active} waId={active} users={users} onChange={loadConvs} />}
-      {showBc && <Broadcast recipients={shown} onClose={() => setShowBc(false)} />}
+      {showBc && <Broadcast recipients={convs} onClose={() => setShowBc(false)} />}
       {showTpl && active && <SendTemplate waId={active} onClose={() => setShowTpl(false)} onSent={loadConvs} />}
       {showNote && active && (
         <div className="modal-bg" onClick={() => setShowNote(false)}>

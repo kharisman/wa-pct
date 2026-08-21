@@ -238,3 +238,5 @@ body { color: #1b2340; }
 .rem-form { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .rem-form input { padding: 7px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
 .rem-form button { padding: 7px; border: 0; border-radius: 6px; background: #152159; color: #fff; cursor: pointer; font-weight: 600; }
+.seg-row { display: flex; gap: 8px; }
+.seg-row select { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
