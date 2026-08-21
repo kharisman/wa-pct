@@ -8,15 +8,15 @@ export default function Settings() {
 
   const [ar, setAr] = useState({ on: false, text: '' });
   const [arSaved, setArSaved] = useState(false);
-  const [aiSys, setAiSys] = useState('');
+  const [ai, setAi] = useState({ system: '', funnel: '', knowledge: '' });
   const [aiSaved, setAiSaved] = useState(false);
   useEffect(() => {
     fetch('/api/settings').then((r) => r.json()).then(setCfg);
     api('/auto-reply').then(setAr);
-    api('/ai-config').then((d) => setAiSys(d.system || ''));
+    api('/ai-config').then((d) => setAi({ system: d.system || '', funnel: d.funnel || '', knowledge: d.knowledge || '' }));
   }, []);
   const saveAr = async (e) => { e.preventDefault(); await post('/auto-reply', ar); setArSaved(true); setTimeout(() => setArSaved(false), 1500); };
-  const saveAi = async (e) => { e.preventDefault(); await post('/ai-config', { system: aiSys }); setAiSaved(true); setTimeout(() => setAiSaved(false), 1500); };
+  const saveAi = async (e) => { e.preventDefault(); await post('/ai-config', ai); setAiSaved(true); setTimeout(() => setAiSaved(false), 1500); };
 
   const save = async (e) => {
     e.preventDefault();
@@ -63,9 +63,22 @@ export default function Settings() {
           </form>
         )}
         <form onSubmit={saveAi}>
-          <div className="field"><label>Peran & aturan AI (system prompt)</label>
-            <textarea rows={5} value={aiSys} placeholder="Kamu CS PalComTech yang ramah. Jawab singkat, sopan, Bahasa Indonesia. Jangan menjanjikan harga pasti — arahkan ke admin PMB. Fokus bantu calon mahasiswa." onChange={(e) => setAiSys(e.target.value)} /></div>
-          <div className="row"><button>Simpan peran AI</button>{aiSaved && <span className="saved">✓ tersimpan</span>}</div>
+          <div className="field"><label>Peran & gaya AI</label>
+            <textarea rows={3} value={ai.system} placeholder="Kamu CS PalComTech yang ramah & sopan. Bahasa Indonesia santai." onChange={(e) => setAi({ ...ai, system: e.target.value })} /></div>
+
+          <div className="field"><label>Funnel bertahap (alur tanya-jawab)</label>
+            <textarea rows={6} value={ai.funnel} onChange={(e) => setAi({ ...ai, funnel: e.target.value })}
+              placeholder={'Contoh:\n1. Sapa & tanya nama + program studi yang diminati.\n2. Tanya jenjang (D3/S1) & asal sekolah.\n3. Baru berikan info biaya sesuai program itu.\n4. Tawarkan jadwal daftar / hubungkan ke admin PMB.'} />
+            <small>AI akan mengikuti langkah ini satu per satu (nanya dulu sebelum jawab) — bikin jawaban lebih presisi.</small>
+          </div>
+
+          <div className="field"><label>Knowledge (fakta pasti — biar tidak mengarang)</label>
+            <textarea rows={6} value={ai.knowledge} onChange={(e) => setAi({ ...ai, knowledge: e.target.value })}
+              placeholder={'Isi data asli, contoh:\nProgram S1: Informatika, Sistem Informasi, Bisnis Digital.\nD3: Manajemen Informatika, Komputerisasi Akuntansi.\nBiaya pendaftaran Rp500.000. SPP S1 Rp7.000.000/semester.\nBeasiswa hingga 80% untuk gelombang awal.\nKontak admin PMB: 0811-7855-878.'} />
+            <small>AI hanya boleh pakai fakta di sini untuk harga/program/syarat. Di luar ini, AI akan bilang "dicek admin".</small>
+          </div>
+
+          <div className="row"><button>Simpan pengaturan AI</button>{aiSaved && <span className="saved">✓ tersimpan</span>}</div>
         </form>
       </div>
 

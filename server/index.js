@@ -91,10 +91,9 @@ app.post('/webhook', (req, res) => {
           // AI otomatis balas kalau nomor ini AI-nya aktif (cuma pesan teks)
           if (ch?.ai_enabled && m.type === 'text') {
             try {
-              const system = await getSetting('AI_SYSTEM');
               const hist = (await listMessages(m.from)).filter((x) => x.direction !== 'note').slice(-20)
                 .map((x) => ({ role: x.direction === 'in' ? 'user' : 'assistant', content: x.body || '' }));
-              const reply = await aiReply(system, hist);
+              const reply = await aiReply(await aiSystem(), hist);
               if (reply) {
                 const wid = await sendText(ch, m.from, reply);
                 const rid = await insertMessage({ waId: m.from, direction: 'out', body: reply, waMsgId: wid, status: 'sent', sentBy: 'AI', channelId });
@@ -212,18 +211,37 @@ app.get('/api/auto-assign', async (_req, res) => res.json({ on: (await getSettin
 app.post('/api/auto-assign', requireAdmin, async (req, res) => { await setSetting('AUTO_ASSIGN', req.body.on ? '1' : '0'); res.json({ on: !!req.body.on }); });
 
 // ===== AI (DeepSeek) =====
+// Rangkai system prompt dari peran + funnel bertahap + knowledge (fakta presisi)
+async function aiSystem() {
+  const persona = (await getSetting('AI_SYSTEM')) || '';
+  const funnel = (await getSetting('AI_FUNNEL')) || '';
+  const knowledge = (await getSetting('AI_KNOWLEDGE')) || '';
+  let s = persona;
+  if (funnel) s += '\n\nIKUTI ALUR PERCAKAPAN BERTAHAP ini. Kerjakan SATU langkah dulu, tanyakan info yang belum diketahui sebelum lanjut ke langkah berikutnya. Jangan langsung menjawab semua di awal:\n' + funnel;
+  if (knowledge) s += '\n\nGUNAKAN HANYA FAKTA di bawah ini untuk jawaban spesifik (harga, program, syarat, jadwal). Kalau informasi tidak ada di sini, JANGAN mengarang — bilang akan dicek/diteruskan ke admin:\n' + knowledge;
+  return s;
+}
+
 app.post('/api/ai-suggest', async (req, res) => {
   const { wa_id } = req.body;
   if (!wa_id) return res.status(400).json({ error: 'wa_id wajib' });
   try {
-    const system = await getSetting('AI_SYSTEM');
     const msgs = (await listMessages(wa_id)).filter((m) => m.direction !== 'note').slice(-20); // memori per percakapan
     const history = msgs.map((m) => ({ role: m.direction === 'in' ? 'user' : 'assistant', content: m.body || '' }));
-    res.json({ text: await aiReply(system, history) });
+    res.json({ text: await aiReply(await aiSystem(), history) });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
-app.get('/api/ai-config', requireAdmin, async (_req, res) => res.json({ system: (await getSetting('AI_SYSTEM')) || '' }));
-app.post('/api/ai-config', requireAdmin, async (req, res) => { await setSetting('AI_SYSTEM', req.body.system || ''); res.json({ ok: true }); });
+app.get('/api/ai-config', requireAdmin, async (_req, res) => res.json({
+  system: (await getSetting('AI_SYSTEM')) || '',
+  funnel: (await getSetting('AI_FUNNEL')) || '',
+  knowledge: (await getSetting('AI_KNOWLEDGE')) || '',
+}));
+app.post('/api/ai-config', requireAdmin, async (req, res) => {
+  if (req.body.system !== undefined) await setSetting('AI_SYSTEM', req.body.system);
+  if (req.body.funnel !== undefined) await setSetting('AI_FUNNEL', req.body.funnel);
+  if (req.body.knowledge !== undefined) await setSetting('AI_KNOWLEDGE', req.body.knowledge);
+  res.json({ ok: true });
+});
 
 // ===== Auto-reply (greeting) =====
 app.get('/api/auto-reply', async (_req, res) => res.json({ on: (await getSetting('AUTO_REPLY')) === '1', text: (await getSetting('AUTO_REPLY_TEXT')) || '' }));
