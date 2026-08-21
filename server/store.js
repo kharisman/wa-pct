@@ -35,8 +35,10 @@ export async function storeMedia(name, buffer, contentType) {
 // baca balik buat route /media/:name (proxy — jalan walau bucket private)
 export async function readMedia(name) {
   if (useS3) {
-    const r = await s3.send(new GetObjectCommand({ Bucket: AWS_BUCKET, Key: `media/${name}` }));
-    return { buffer: Buffer.from(await r.Body.transformToByteArray()), contentType: r.ContentType || mimeOf(name) };
+    try {
+      const r = await s3.send(new GetObjectCommand({ Bucket: AWS_BUCKET, Key: `media/${name}` }));
+      return { buffer: Buffer.from(await r.Body.transformToByteArray()), contentType: r.ContentType || mimeOf(name) };
+    } catch { /* fallback ke disk lokal (file lama sebelum S3) */ }
   }
   return { buffer: await readFile(MEDIA_DIR + name), contentType: mimeOf(name) };
 }
