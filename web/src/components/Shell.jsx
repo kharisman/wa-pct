@@ -13,6 +13,7 @@ import Settings from '../pages/Settings.jsx';
 export default function Shell({ me, onLogout }) {
   const [nav, setNav] = useState('conversations');
   const [active, setActive] = useState(null); // wa_id percakapan terbuka
+  const [menuOpen, setMenuOpen] = useState(false);
   const [notif, setNotif] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -53,11 +54,13 @@ export default function Shell({ me, onLogout }) {
 
   return (
     <div className="shell">
-      <aside className="sidebar">
+      {!(nav === 'conversations' && active) && <button className="hamburger" onClick={() => setMenuOpen(true)} aria-label="Menu">☰</button>}
+      {menuOpen && <div className="drawer-backdrop" onClick={() => setMenuOpen(false)} />}
+      <aside className={'sidebar' + (menuOpen ? ' open' : '')}>
         <div className="brand">💬 WA CRM</div>
         <nav>
           {items.map(([k, icon, label]) => (
-            <button key={k} className={'navitem' + (nav === k ? ' active' : '')} onClick={() => setNav(k)}>
+            <button key={k} className={'navitem' + (nav === k ? ' active' : '')} onClick={() => { setNav(k); setMenuOpen(false); }}>
               <span className="ic">{icon}</span> {label}
             </button>
           ))}
