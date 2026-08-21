@@ -41,6 +41,11 @@ export async function initDb() {
   `);
   await q('ALTER TABLE messages ADD COLUMN IF NOT EXISTS sent_by text'); // nama agen pengirim (out/note)
   await q("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS stage text"); // tahap pipeline
+  // index buat kecepatan (dedup, laporan, filter)
+  await q('CREATE INDEX IF NOT EXISTS idx_msg_wamsgid ON messages(wa_msg_id)');
+  await q('CREATE INDEX IF NOT EXISTS idx_msg_sentby ON messages(sent_by)');
+  await q('CREATE INDEX IF NOT EXISTS idx_msg_created ON messages(created_at)');
+  await q('CREATE INDEX IF NOT EXISTS idx_contacts_assignee ON contacts(assignee)');
 }
 
 const now = () => Date.now();
@@ -102,8 +107,13 @@ export const listConversations = async () =>
     FROM contacts c LEFT JOIN channels ch ON ch.id=c.channel_id ORDER BY last_at DESC NULLS LAST
   `)).rows;
 
-export const listMessages = async (waId) =>
-  (await q('SELECT * FROM messages WHERE wa_id=$1 ORDER BY id ASC', [waId])).rows;
+// pagination: 50 terakhir; `before` = id pesan tertua yg sudah dimuat (buat "muat lama")
+export const listMessages = async (waId, before) => {
+  const rows = before
+    ? (await q('SELECT * FROM messages WHERE wa_id=$1 AND id<$2 ORDER BY id DESC LIMIT 50', [waId, before])).rows
+    : (await q('SELECT * FROM messages WHERE wa_id=$1 ORDER BY id DESC LIMIT 50', [waId])).rows;
+  return rows.reverse();
+};
 
 // ===== Multi-nomor (channels) =====
 export async function initChannels() {

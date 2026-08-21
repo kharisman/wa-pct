@@ -95,7 +95,7 @@ app.get('/api/stats', async (_req, res) => res.json(await stats()));
 app.get('/api/reports/agents', requireAdmin, async (_req, res) => res.json(await agentReport()));
 app.get('/api/reports/pipeline', requireAdmin, async (_req, res) => res.json(await pipelineFunnel()));
 app.get('/api/conversations', async (_req, res) => res.json(await listConversations()));
-app.get('/api/messages/:waId', async (req, res) => res.json(await listMessages(req.params.waId)));
+app.get('/api/messages/:waId', async (req, res) => res.json(await listMessages(req.params.waId, req.query.before)));
 
 app.get('/api/contact/:waId', async (req, res) => res.json((await getContact(req.params.waId)) || {}));
 app.patch('/api/contact/:waId', async (req, res) => {

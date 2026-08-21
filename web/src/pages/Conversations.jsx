@@ -38,7 +38,18 @@ export default function Conversations({ me, active, setActive }) {
         : filter === 'unreplied' ? needsReply(c)
           : true);
 
-  useEffect(() => { if (active) api('/messages/' + active).then(setMsgs); else setMsgs([]); }, [active]);
+  const [hasMore, setHasMore] = useState(false);
+  useEffect(() => {
+    if (active) api('/messages/' + active).then((m) => { setMsgs(m); setHasMore(m.length === 50); });
+    else { setMsgs([]); setHasMore(false); }
+  }, [active]);
+
+  const loadOlder = async () => {
+    if (!msgs.length) return;
+    const older = await api('/messages/' + active + '?before=' + msgs[0].id);
+    setMsgs((cur) => [...older, ...cur]);
+    setHasMore(older.length === 50);
+  };
 
   useEffect(() => {
     const es = new EventSource('/api/stream');
@@ -57,7 +68,11 @@ export default function Conversations({ me, active, setActive }) {
     return () => es.close();
   }, []);
 
-  useEffect(() => { bottom.current?.scrollIntoView(); }, [msgs]);
+  const lastIdRef = useRef(null);
+  useEffect(() => {
+    const last = msgs[msgs.length - 1]?.id;
+    if (last !== lastIdRef.current) { lastIdRef.current = last; bottom.current?.scrollIntoView(); } // scroll cuma saat pesan baru, bukan muat lama
+  }, [msgs]);
 
   const send = async (e) => {
     e.preventDefault();
@@ -130,6 +145,7 @@ export default function Conversations({ me, active, setActive }) {
             </div>
           </div>
           <div className="msgs">
+            {hasMore && <button type="button" className="load-older" onClick={loadOlder}>↑ Muat pesan lama</button>}
             {msgs.map((m) => m.direction === 'note' ? (
               <div key={m.id} className="note-msg">
                 📝 {m.body}
