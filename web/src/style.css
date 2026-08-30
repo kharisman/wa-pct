@@ -313,3 +313,14 @@ body { color: #1b2340; }
 .set-tab { padding: 9px 16px; border: 1px solid #d9dfe8; background: #fff; border-radius: 9px; cursor: pointer; font: inherit; font-weight: 600; color: #556; }
 .set-tab.active { background: #152159; color: #fff; border-color: #152159; }
 .sub-label { font-size: 12px; color: #666; font-weight: 600; display: block; }
+
+/* ==== Rapikan tombol sekunder di Setting (override warna gold) ==== */
+.card .add-card { background: #f3f5fa !important; color: #152159 !important; border: 1px dashed #b9c3de !important; font-weight: 600; width: 100%; padding: 10px !important; }
+.card .add-card:hover { background: #eaeef7 !important; }
+.card .fbtns button { background: #fff !important; color: #555 !important; padding: 0 !important; width: 26px; height: 24px; font-weight: 400; }
+.card .fbtns button.del { color: #dc2626 !important; }
+.card .kb-del { background: none !important; color: #dc2626 !important; padding: 0 !important; font-weight: 400; }
+/* jarak antar bagian AI */
+.flow { margin: 8px 0 6px; }
+.sub-label { margin-top: 16px; }
+.card form + form { margin-top: 8px; }
