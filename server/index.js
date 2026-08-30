@@ -211,14 +211,18 @@ app.get('/api/auto-assign', async (_req, res) => res.json({ on: (await getSettin
 app.post('/api/auto-assign', requireAdmin, async (req, res) => { await setSetting('AUTO_ASSIGN', req.body.on ? '1' : '0'); res.json({ on: !!req.body.on }); });
 
 // ===== AI (DeepSeek) =====
+// funnel = array of string (langkah). knowledge = array of {title, body}. (kompat teks lama)
+const parseFunnel = (v) => { try { const j = JSON.parse(v); return Array.isArray(j) ? j : (v ? [v] : []); } catch { return v ? [v] : []; } };
+const parseKnow = (v) => { try { const j = JSON.parse(v); return Array.isArray(j) ? j : (v ? [{ title: 'Umum', body: v }] : []); } catch { return v ? [{ title: 'Umum', body: v }] : []; } };
+
 // Rangkai system prompt dari peran + funnel bertahap + knowledge (fakta presisi)
 async function aiSystem() {
   const persona = (await getSetting('AI_SYSTEM')) || '';
-  const funnel = (await getSetting('AI_FUNNEL')) || '';
-  const knowledge = (await getSetting('AI_KNOWLEDGE')) || '';
+  const funnel = parseFunnel(await getSetting('AI_FUNNEL')).map((s) => (s || '').trim()).filter(Boolean);
+  const know = parseKnow(await getSetting('AI_KNOWLEDGE')).filter((k) => (k.body || '').trim());
   let s = persona;
-  if (funnel) s += '\n\nIKUTI ALUR PERCAKAPAN BERTAHAP ini. Kerjakan SATU langkah dulu, tanyakan info yang belum diketahui sebelum lanjut ke langkah berikutnya. Jangan langsung menjawab semua di awal:\n' + funnel;
-  if (knowledge) s += '\n\nGUNAKAN HANYA FAKTA di bawah ini untuk jawaban spesifik (harga, program, syarat, jadwal). Kalau informasi tidak ada di sini, JANGAN mengarang — bilang akan dicek/diteruskan ke admin:\n' + knowledge;
+  if (funnel.length) s += '\n\nIKUTI ALUR PERCAKAPAN BERTAHAP ini urut. Kerjakan SATU langkah dulu, tanyakan info yang belum diketahui sebelum lanjut ke langkah berikutnya. Jangan langsung menjawab semua di awal:\n' + funnel.map((t, i) => `Langkah ${i + 1}: ${t}`).join('\n');
+  if (know.length) s += '\n\nGUNAKAN HANYA FAKTA di bawah untuk jawaban spesifik (harga, program, syarat, jadwal). Kalau tidak ada di sini, JANGAN mengarang — bilang akan dicek/diteruskan ke admin:\n' + know.map((k) => `• ${k.title ? k.title + ': ' : ''}${k.body}`).join('\n');
   return s;
 }
 
@@ -233,13 +237,13 @@ app.post('/api/ai-suggest', async (req, res) => {
 });
 app.get('/api/ai-config', requireAdmin, async (_req, res) => res.json({
   system: (await getSetting('AI_SYSTEM')) || '',
-  funnel: (await getSetting('AI_FUNNEL')) || '',
-  knowledge: (await getSetting('AI_KNOWLEDGE')) || '',
+  funnel: parseFunnel(await getSetting('AI_FUNNEL')),          // array of string
+  knowledge: parseKnow(await getSetting('AI_KNOWLEDGE')),      // array of {title, body}
 }));
 app.post('/api/ai-config', requireAdmin, async (req, res) => {
   if (req.body.system !== undefined) await setSetting('AI_SYSTEM', req.body.system);
-  if (req.body.funnel !== undefined) await setSetting('AI_FUNNEL', req.body.funnel);
-  if (req.body.knowledge !== undefined) await setSetting('AI_KNOWLEDGE', req.body.knowledge);
+  if (req.body.funnel !== undefined) await setSetting('AI_FUNNEL', JSON.stringify(req.body.funnel));
+  if (req.body.knowledge !== undefined) await setSetting('AI_KNOWLEDGE', JSON.stringify(req.body.knowledge));
   res.json({ ok: true });
 });
 

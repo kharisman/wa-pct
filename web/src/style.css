@@ -288,3 +288,22 @@ body { color: #1b2340; }
 .bc-name { font-weight: 600; }
 .bc-num { color: #999; font-size: 12px; margin-left: auto; }
 @media (max-width: 760px) { .bc-grid { grid-template-columns: 1fr; } }
+
+/* AI funnel & knowledge cards */
+.flow { display: flex; flex-direction: column; gap: 0; margin: 6px 0 4px; }
+.fcard { display: flex; gap: 8px; align-items: flex-start; background: #f6f8fc; border: 1px solid #e0e6f0; border-radius: 10px; padding: 10px; }
+.fnum { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #152159; color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.fcard textarea { flex: 1; border: 1px solid #d5dbe6; border-radius: 7px; padding: 7px; font: inherit; resize: vertical; }
+.fbtns { display: flex; flex-direction: column; gap: 2px; }
+.fbtns button { width: 24px; height: 22px; border: 1px solid #d5dbe6; background: #fff; border-radius: 5px; cursor: pointer; font-size: 12px; }
+.fbtns button:disabled { opacity: .35; }
+.fbtns .del { color: #dc2626; }
+.fconn { text-align: center; color: #9aa7c2; font-size: 16px; line-height: 1.2; }
+.add-card { align-self: flex-start; margin-top: 8px; background: #eef1fb; color: #152159; border: 1px dashed #b9c3de; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; }
+.kb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0; }
+.kbcard { background: #fff; border: 1px solid #e0e6f0; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.kbcard input { border: 1px solid #d5dbe6; border-radius: 7px; padding: 7px; font: inherit; font-weight: 600; }
+.kbcard textarea { border: 1px solid #d5dbe6; border-radius: 7px; padding: 7px; font: inherit; resize: vertical; }
+.kb-del { align-self: flex-end; background: none; border: 0; color: #dc2626; cursor: pointer; font-size: 12px; }
+.kb-grid .add-card { grid-column: 1 / -1; }
+@media (max-width: 760px) { .kb-grid { grid-template-columns: 1fr; } }

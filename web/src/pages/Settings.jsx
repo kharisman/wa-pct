@@ -17,6 +17,9 @@ export default function Settings() {
   }, []);
   const saveAr = async (e) => { e.preventDefault(); await post('/auto-reply', ar); setArSaved(true); setTimeout(() => setArSaved(false), 1500); };
   const saveAi = async (e) => { e.preventDefault(); await post('/ai-config', ai); setAiSaved(true); setTimeout(() => setAiSaved(false), 1500); };
+  const setFunnel = (f) => setAi((a) => ({ ...a, funnel: f }));
+  const setKnow = (k) => setAi((a) => ({ ...a, knowledge: k }));
+  const moveFunnel = (i, dir) => { const j = i + dir; if (j < 0 || j >= ai.funnel.length) return; const a = [...ai.funnel];[a[i], a[j]] = [a[j], a[i]]; setFunnel(a); };
 
   const save = async (e) => {
     e.preventDefault();
@@ -66,19 +69,39 @@ export default function Settings() {
           <div className="field"><label>Peran & gaya AI</label>
             <textarea rows={3} value={ai.system} placeholder="Kamu CS PalComTech yang ramah & sopan. Bahasa Indonesia santai." onChange={(e) => setAi({ ...ai, system: e.target.value })} /></div>
 
-          <div className="field"><label>Funnel bertahap (alur tanya-jawab)</label>
-            <textarea rows={6} value={ai.funnel} onChange={(e) => setAi({ ...ai, funnel: e.target.value })}
-              placeholder={'Contoh:\n1. Sapa & tanya nama + program studi yang diminati.\n2. Tanya jenjang (D3/S1) & asal sekolah.\n3. Baru berikan info biaya sesuai program itu.\n4. Tawarkan jadwal daftar / hubungkan ke admin PMB.'} />
-            <small>AI akan mengikuti langkah ini satu per satu (nanya dulu sebelum jawab) — bikin jawaban lebih presisi.</small>
+          <label style={{ fontSize: 12, color: '#666', fontWeight: 600 }}>Funnel bertahap — kartu langkah (AI ikuti berurutan)</label>
+          <div className="flow">
+            {(ai.funnel || []).map((step, i) => (
+              <div key={i}>
+                <div className="fcard">
+                  <span className="fnum">{i + 1}</span>
+                  <textarea rows={2} value={step} placeholder={'Yang AI lakukan di langkah ini… (mis. tanya program studi)'}
+                    onChange={(e) => setFunnel(ai.funnel.map((s, j) => (j === i ? e.target.value : s)))} />
+                  <div className="fbtns">
+                    <button type="button" onClick={() => moveFunnel(i, -1)} disabled={i === 0}>↑</button>
+                    <button type="button" onClick={() => moveFunnel(i, 1)} disabled={i === ai.funnel.length - 1}>↓</button>
+                    <button type="button" className="del" onClick={() => setFunnel(ai.funnel.filter((_, j) => j !== i))}>×</button>
+                  </div>
+                </div>
+                {i < ai.funnel.length - 1 && <div className="fconn">↓</div>}
+              </div>
+            ))}
+            <button type="button" className="add-card" onClick={() => setFunnel([...(ai.funnel || []), ''])}>＋ tambah langkah</button>
           </div>
 
-          <div className="field"><label>Knowledge (fakta pasti — biar tidak mengarang)</label>
-            <textarea rows={6} value={ai.knowledge} onChange={(e) => setAi({ ...ai, knowledge: e.target.value })}
-              placeholder={'Isi data asli, contoh:\nProgram S1: Informatika, Sistem Informasi, Bisnis Digital.\nD3: Manajemen Informatika, Komputerisasi Akuntansi.\nBiaya pendaftaran Rp500.000. SPP S1 Rp7.000.000/semester.\nBeasiswa hingga 80% untuk gelombang awal.\nKontak admin PMB: 0811-7855-878.'} />
-            <small>AI hanya boleh pakai fakta di sini untuk harga/program/syarat. Di luar ini, AI akan bilang "dicek admin".</small>
+          <label style={{ fontSize: 12, color: '#666', fontWeight: 600, marginTop: 18, display: 'block' }}>Knowledge — kartu fakta (AI hanya pakai ini)</label>
+          <div className="kb-grid">
+            {(ai.knowledge || []).map((k, i) => (
+              <div key={i} className="kbcard">
+                <input value={k.title} placeholder="Judul (mis. Biaya)" onChange={(e) => setKnow(ai.knowledge.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} />
+                <textarea rows={3} value={k.body} placeholder="Fakta / data asli…" onChange={(e) => setKnow(ai.knowledge.map((x, j) => (j === i ? { ...x, body: e.target.value } : x)))} />
+                <button type="button" className="kb-del" onClick={() => setKnow(ai.knowledge.filter((_, j) => j !== i))}>× hapus</button>
+              </div>
+            ))}
+            <button type="button" className="add-card" onClick={() => setKnow([...(ai.knowledge || []), { title: '', body: '' }])}>＋ tambah kartu fakta</button>
           </div>
 
-          <div className="row"><button>Simpan pengaturan AI</button>{aiSaved && <span className="saved">✓ tersimpan</span>}</div>
+          <div className="row" style={{ marginTop: 16 }}><button>Simpan pengaturan AI</button>{aiSaved && <span className="saved">✓ tersimpan</span>}</div>
         </form>
       </div>
 
