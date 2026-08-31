@@ -364,3 +364,4 @@ body { color: #1b2340; }
 .master-chip { background: #eef1fb; color: #152159; border-radius: 8px; padding: 3px 6px 3px 10px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
 .master-chip button { border: 0; background: none; color: #dc2626; cursor: pointer; font-size: 14px; padding: 0 2px; }
 @media (max-width: 760px) { .master-grid { grid-template-columns: 1fr; } }
+.card .master-chip button { background: none !important; color: #dc2626 !important; padding: 0 2px !important; font-weight: 400; }
