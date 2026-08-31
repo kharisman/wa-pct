@@ -9,13 +9,13 @@ export default function Settings() {
 
   const [ar, setAr] = useState({ on: false, text: '' });
   const [arSaved, setArSaved] = useState(false);
-  const [ai, setAi] = useState({ system: '', funnel: [], knowledge: [] });
+  const [ai, setAi] = useState({ system: '', funnel: [], knowledge: [], handover: '' });
   const [aiSaved, setAiSaved] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings').then((r) => r.json()).then(setCfg);
     api('/auto-reply').then(setAr);
-    api('/ai-config').then((d) => setAi({ system: d.system || '', funnel: d.funnel || [], knowledge: d.knowledge || [] }));
+    api('/ai-config').then((d) => setAi({ system: d.system || '', funnel: d.funnel || [], knowledge: d.knowledge || [], handover: d.handover || '' }));
   }, []);
 
   const save = async (e) => { e.preventDefault(); const res = await patch('/settings', form); setCfg(await res.json()); setForm({}); setSaved(true); setTimeout(() => setSaved(false), 1500); };
@@ -105,7 +105,12 @@ export default function Settings() {
               <button type="button" className="add-card" onClick={() => setKnow([...(ai.knowledge || []), { title: '', body: '' }])}>＋ tambah kartu fakta</button>
             </div>
 
-            <div className="row" style={{ marginTop: 16 }}><button>Simpan pengaturan AI</button>{aiSaved && <span className="saved">✓ tersimpan</span>}</div>
+            <div className="field" style={{ marginTop: 16 }}><label>Pesan saat dialihkan ke admin</label>
+              <textarea rows={2} value={ai.handover} placeholder="Baik, kakak akan kami hubungkan dengan admin kami ya 🙏 Mohon ditunggu." onChange={(e) => setAi({ ...ai, handover: e.target.value })} />
+              <small>Dikirim otomatis + AI berhenti balas kalau pelanggan minta bicara ke admin/agen. Agen bisa balikin AI dari header chat.</small>
+            </div>
+
+            <div className="row" style={{ marginTop: 8 }}><button>Simpan pengaturan AI</button>{aiSaved && <span className="saved">✓ tersimpan</span>}</div>
           </form>
         </div>
       )}

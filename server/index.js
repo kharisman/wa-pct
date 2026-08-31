@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import {
   upsertContact, insertMessage, updateStatus,
-  listConversations, listMessages, getContact, updateContact, initDb, stats, agentReport, pipelineFunnel,
+  listConversations, listMessages, getContact, updateContact, setContactAiOff, initDb, stats, agentReport, pipelineFunnel,
   initTplMedia, setTplMedia, getTplMedia,
   initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel, setChannelAi,
   setContactChannel, q,
@@ -88,16 +88,27 @@ app.post('/webhook', (req, res) => {
           }
           const id = await insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl, channelId });
           broadcast({ kind: 'message', wa_id: m.from, name: profileName, message: { id, direction: 'in', body, type: m.type, media_url: mediaUrl, created_at: Date.now() } });
-          // AI otomatis balas kalau nomor ini AI-nya aktif (cuma pesan teks)
-          if (ch?.ai_enabled && m.type === 'text') {
+          // AI otomatis balas kalau nomor ini AI-nya aktif (cuma pesan teks) & belum diambil alih agen
+          if (ch?.ai_enabled && m.type === 'text' && !before?.ai_off) {
+            const wantsHuman = /\b(admin|agen|manusia|customer service|operator|petugas|cs)\b|orang\s*(asli|nya)|bicara\s+langsung|sambungk?an|hubungk?an ke|ke\s+admin|dengan\s+admin/i.test(body);
             try {
-              const hist = (await listMessages(m.from)).filter((x) => x.direction !== 'note').slice(-20)
-                .map((x) => ({ role: x.direction === 'in' ? 'user' : 'assistant', content: x.body || '' }));
-              const reply = await aiReply(await aiSystem(), hist);
-              if (reply) {
-                const wid = await sendText(ch, m.from, reply);
-                const rid = await insertMessage({ waId: m.from, direction: 'out', body: reply, waMsgId: wid, status: 'sent', sentBy: 'AI', channelId });
-                broadcast({ kind: 'message', wa_id: m.from, message: { id: rid, direction: 'out', body: reply, type: 'text', status: 'sent', sent_by: 'AI', created_at: Date.now() } });
+              if (wantsHuman) {
+                // Pelanggan minta manusia → matikan AI utk kontak ini, kirim pesan take over
+                await setContactAiOff(m.from, 1);
+                const txt = (await getSetting('AI_HANDOVER_TEXT')) || 'Baik, kakak akan kami hubungkan dengan admin kami ya 🙏 Mohon ditunggu sebentar.';
+                const wid = await sendText(ch, m.from, txt);
+                const hid = await insertMessage({ waId: m.from, direction: 'out', body: txt, waMsgId: wid, status: 'sent', sentBy: 'AI', channelId });
+                broadcast({ kind: 'message', wa_id: m.from, message: { id: hid, direction: 'out', body: txt, type: 'text', status: 'sent', sent_by: 'AI', created_at: Date.now() } });
+                broadcast({ kind: 'handover', wa_id: m.from, name: profileName }); // notif agen
+              } else {
+                const hist = (await listMessages(m.from)).filter((x) => x.direction !== 'note').slice(-20)
+                  .map((x) => ({ role: x.direction === 'in' ? 'user' : 'assistant', content: x.body || '' }));
+                const reply = await aiReply(await aiSystem(), hist);
+                if (reply) {
+                  const wid = await sendText(ch, m.from, reply);
+                  const rid = await insertMessage({ waId: m.from, direction: 'out', body: reply, waMsgId: wid, status: 'sent', sentBy: 'AI', channelId });
+                  broadcast({ kind: 'message', wa_id: m.from, message: { id: rid, direction: 'out', body: reply, type: 'text', status: 'sent', sent_by: 'AI', created_at: Date.now() } });
+                }
               }
             } catch (e) { console.error('AI auto-reply gagal', e.message); }
           }
@@ -239,11 +250,13 @@ app.get('/api/ai-config', requireAdmin, async (_req, res) => res.json({
   system: (await getSetting('AI_SYSTEM')) || '',
   funnel: parseFunnel(await getSetting('AI_FUNNEL')),          // array of string
   knowledge: parseKnow(await getSetting('AI_KNOWLEDGE')),      // array of {title, body}
+  handover: (await getSetting('AI_HANDOVER_TEXT')) || '',
 }));
 app.post('/api/ai-config', requireAdmin, async (req, res) => {
   if (req.body.system !== undefined) await setSetting('AI_SYSTEM', req.body.system);
   if (req.body.funnel !== undefined) await setSetting('AI_FUNNEL', JSON.stringify(req.body.funnel));
   if (req.body.knowledge !== undefined) await setSetting('AI_KNOWLEDGE', JSON.stringify(req.body.knowledge));
+  if (req.body.handover !== undefined) await setSetting('AI_HANDOVER_TEXT', req.body.handover);
   res.json({ ok: true });
 });
 

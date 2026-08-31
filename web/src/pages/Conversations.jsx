@@ -190,10 +190,20 @@ export default function Conversations({ me, active, setActive }) {
         <div className="thread">
           <div className="thread-head">
             <button className="back-btn" onClick={() => setActive(null)}>←</button>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <b>{convs.find((c) => c.wa_id === active)?.name || active}</b>
               <span className="num">{active}</span>
             </div>
+            {(() => {
+              const ac = convs.find((c) => c.wa_id === active);
+              const off = ac?.ai_off;
+              return (
+                <button className={'ai-th' + (off ? ' off' : '')} title={off ? 'AI dimatikan untuk kontak ini — klik untuk aktifkan' : 'AI aktif — klik untuk ambil alih (matikan AI)'}
+                  onClick={async () => { await post('/contact/' + active, { ai_off: off ? 0 : 1 }); loadConvs(); }}>
+                  {off ? '🙋 Diambil alih' : '🤖 AI aktif'}
+                </button>
+              );
+            })()}
           </div>
           <div className="msgs">
             {hasMore && <button type="button" className="load-older" onClick={loadOlder}>↑ Muat pesan lama</button>}

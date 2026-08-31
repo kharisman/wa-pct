@@ -32,6 +32,13 @@ export default function Shell({ me, onLogout }) {
         } else alert('⏰ Follow-up: ' + ev.wa_id + (ev.note ? ' — ' + ev.note : ''));
         return;
       }
+      if (ev.kind === 'handover') {
+        if (Notification.permission === 'granted') {
+          const n = new Notification('🙋 Minta admin: ' + (ev.name || ev.wa_id), { body: 'Pelanggan minta bicara ke agen. AI dimatikan untuk chat ini.', tag: 'ho' + ev.wa_id });
+          n.onclick = () => { window.focus(); setActive(ev.wa_id); setNav('conversations'); n.close(); };
+        }
+        return;
+      }
       if (ev.kind !== 'message' || ev.message.direction !== 'in') return;
       if (Notification.permission !== 'granted') return;
       if (!document.hidden && ev.wa_id === activeRef.current) return; // lagi buka chat itu → skip

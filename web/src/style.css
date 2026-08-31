@@ -342,3 +342,5 @@ body { color: #1b2340; }
 .conv-filters { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
 .conv-filters select { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid #d5dbe6; border-radius: 8px; font: inherit; font-size: 13px; background: #fff; }
 .conv-reset { background: none; border: 0; color: #dc2626; cursor: pointer; font-size: 12px; font: inherit; padding: 4px; white-space: nowrap; }
+.ai-th { flex: none; border: 1px solid #cbd5e6; background: #eaf7ef; color: #157a54; border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.ai-th.off { background: #fdecea; color: #c0392b; border-color: #f0c4bf; }

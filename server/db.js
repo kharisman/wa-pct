@@ -41,6 +41,7 @@ export async function initDb() {
   `);
   await q('ALTER TABLE messages ADD COLUMN IF NOT EXISTS sent_by text'); // nama agen pengirim (out/note)
   await q("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS stage text"); // tahap pipeline
+  await q('ALTER TABLE contacts ADD COLUMN IF NOT EXISTS ai_off int DEFAULT 0'); // AI dimatikan utk kontak ini (diambil alih agen)
   // index buat kecepatan (dedup, laporan, filter)
   await q('CREATE INDEX IF NOT EXISTS idx_msg_wamsgid ON messages(wa_msg_id)');
   await q('CREATE INDEX IF NOT EXISTS idx_msg_sentby ON messages(sent_by)');
@@ -79,9 +80,9 @@ export async function updateStatus(waMsgId, status) {
 }
 
 export const getContact = async (waId) =>
-  (await q('SELECT wa_id, name, labels, notes, assignee, channel_id, stage, pipeline_id, created_at FROM contacts WHERE wa_id=$1', [waId])).rows[0];
+  (await q('SELECT wa_id, name, labels, notes, assignee, channel_id, stage, pipeline_id, ai_off, created_at FROM contacts WHERE wa_id=$1', [waId])).rows[0];
 
-export async function updateContact(waId, { name, labels, notes, assignee, stage, pipeline_id }) {
+export async function updateContact(waId, { name, labels, notes, assignee, stage, pipeline_id, ai_off }) {
   await q(
     `UPDATE contacts SET
        name        = COALESCE($1, name),
@@ -89,17 +90,20 @@ export async function updateContact(waId, { name, labels, notes, assignee, stage
        notes       = COALESCE($3, notes),
        assignee    = COALESCE($4, assignee),
        stage       = COALESCE($5, stage),
-       pipeline_id = COALESCE($6, pipeline_id)
-     WHERE wa_id=$7`,
+       pipeline_id = COALESCE($6, pipeline_id),
+       ai_off      = COALESCE($7, ai_off)
+     WHERE wa_id=$8`,
     [name ?? null, labels ? JSON.stringify(labels) : null, notes ?? null,
-     assignee === undefined ? null : assignee, stage ?? null, pipeline_id ?? null, waId]
+     assignee === undefined ? null : assignee, stage ?? null, pipeline_id ?? null,
+     ai_off === undefined ? null : ai_off, waId]
   );
   return getContact(waId);
 }
+export const setContactAiOff = (waId, off) => q('UPDATE contacts SET ai_off=$1 WHERE wa_id=$2', [off ? 1 : 0, waId]);
 
 export const listConversations = async () =>
   (await q(`
-    SELECT c.wa_id, c.name, c.labels, c.assignee, c.channel_id, c.stage, c.pipeline_id,
+    SELECT c.wa_id, c.name, c.labels, c.assignee, c.channel_id, c.stage, c.pipeline_id, c.ai_off,
            ch.label AS channel_label,
            (SELECT body FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_body,
            (SELECT direction FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_dir,
