@@ -88,7 +88,7 @@ export default function Pipeline({ me, onOpen }) {
         <select value={sel || ''} onChange={(e) => setSel(Number(e.target.value))}>
           {pipes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        {me?.is_admin && <>
+        {(me?.perms?.includes('all') || me?.perms?.includes('pipeline_admin')) && <>
           <button className="link" onClick={() => setForm({ mode: 'new' })}>＋ Pipeline</button>
           {current && <button className="link" onClick={() => setForm({ mode: 'edit' })}>Kelola tahap</button>}
           {current && pipes.length > 1 && <button className="link" onClick={() => setConfirmDel(true)}>Hapus</button>}

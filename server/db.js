@@ -175,6 +175,31 @@ export async function assignRoundRobin(waId) {
   return email;
 }
 
+// ===== Roles & hak akses (custom) =====
+// perms = array capability: reports, agents, templates, quick, channels, settings, pipeline_admin. 'all' = admin penuh.
+export async function initRoles() {
+  await q('CREATE TABLE IF NOT EXISTS roles (name text PRIMARY KEY, label text, perms text, created_at bigint NOT NULL)');
+  if ((await q('SELECT count(*)::int c FROM roles')).rows[0].c === 0) {
+    const seed = [
+      ['admin', 'Admin', ['all']],
+      ['supervisor', 'Supervisor', ['reports', 'pipeline_admin', 'quick']],
+      ['agen', 'Agen', []],
+    ];
+    for (const [name, label, perms] of seed)
+      await q('INSERT INTO roles(name,label,perms,created_at) VALUES($1,$2,$3,$4) ON CONFLICT(name) DO NOTHING', [name, label, JSON.stringify(perms), Date.now()]);
+  }
+}
+export const listRoles = async () =>
+  (await q('SELECT name, label, perms FROM roles ORDER BY created_at')).rows.map((r) => ({ name: r.name, label: r.label, perms: JSON.parse(r.perms || '[]') }));
+export const getRolePerms = async (name) => {
+  const r = (await q('SELECT perms FROM roles WHERE name=$1', [name])).rows[0];
+  return r ? JSON.parse(r.perms || '[]') : [];
+};
+export const upsertRole = (name, label, perms) =>
+  q('INSERT INTO roles(name,label,perms,created_at) VALUES($1,$2,$3,$4) ON CONFLICT(name) DO UPDATE SET label=EXCLUDED.label, perms=EXCLUDED.perms',
+    [name, label, JSON.stringify(perms), Date.now()]);
+export const deleteRole = (name) => q('DELETE FROM roles WHERE name=$1', [name]);
+
 // ===== Balasan cepat (snippet) =====
 export async function initQuickReplies() {
   await q('CREATE TABLE IF NOT EXISTS quick_replies (id serial PRIMARY KEY, title text, body text, created_at bigint NOT NULL)');

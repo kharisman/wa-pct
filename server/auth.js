@@ -1,5 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { q } from './db.js';
+import { q, getRolePerms } from './db.js';
 
 export async function initAuth() {
   await q(`
@@ -64,20 +64,23 @@ export async function requireAuth(req, res, next) {
     const token = parseCookie(req.headers.cookie).sid;
     const s = token && (await q('SELECT email FROM sessions WHERE token=$1', [token])).rows[0];
     if (!s) return res.status(401).json({ error: 'unauthorized' });
-    req.user = (await q('SELECT email, name, is_admin, role, division, jabatan FROM users WHERE email=$1', [s.email])).rows[0];
+    const u = (await q('SELECT email, name, is_admin, role, division, jabatan FROM users WHERE email=$1', [s.email])).rows[0];
+    const roleName = u.role || (u.is_admin ? 'admin' : 'agen');
+    let perms = await getRolePerms(roleName);
+    if (u.is_admin && !perms.length) perms = ['all'];
+    u.perms = perms;
+    req.user = u;
     next();
   } catch (e) { next(e); }
 }
 
-export function requireAdmin(req, res, next) {
-  if (!req.user?.is_admin) return res.status(403).json({ error: 'khusus admin' });
-  next();
+const has = (user, cap) => user?.perms?.includes('all') || user?.perms?.includes(cap);
+export const requireCap = (cap) => (req, res, next) =>
+  has(req.user, cap) ? next() : res.status(403).json({ error: 'akses ditolak' });
+export function requireAdmin(req, res, next) { // = akses penuh ('all')
+  return has(req.user, 'all') ? next() : res.status(403).json({ error: 'khusus admin' });
 }
-// Laporan: admin atau supervisor
-export function requireReports(req, res, next) {
-  if (!req.user?.is_admin && req.user?.role !== 'supervisor') return res.status(403).json({ error: 'akses ditolak' });
-  next();
-}
+export const requireReports = requireCap('reports');
 
 export function mountAuth(app) {
   app.post('/api/login', async (req, res) => {
@@ -96,16 +99,16 @@ export function mountAuth(app) {
   app.get('/api/me', requireAuth, (req, res) => res.json(req.user));
   app.get('/api/users', requireAuth, async (_req, res) => res.json(await listUsers()));
 
-  app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/users', requireAuth, requireCap('agents'), async (req, res) => {
     const { email, name, password, role, division, jabatan } = req.body;
     if (!email || !name || !password) return res.status(400).json({ error: 'email, nama, password wajib' });
     try { await createUser(email, name, password, { role, division, jabatan }); res.json({ ok: true }); }
     catch { res.status(409).json({ error: 'email sudah dipakai' }); }
   });
-  app.patch('/api/users/:email', requireAuth, requireAdmin, async (req, res) => {
+  app.patch('/api/users/:email', requireAuth, requireCap('agents'), async (req, res) => {
     await updateUser(req.params.email, req.body); res.json({ ok: true });
   });
-  app.delete('/api/users/:email', requireAuth, requireAdmin, async (req, res) => {
+  app.delete('/api/users/:email', requireAuth, requireCap('agents'), async (req, res) => {
     if (req.params.email === req.user.email) return res.status(400).json({ error: 'tak bisa hapus diri sendiri' });
     await q('DELETE FROM users WHERE email=$1', [req.params.email]);
     await q('DELETE FROM sessions WHERE email=$1', [req.params.email]);

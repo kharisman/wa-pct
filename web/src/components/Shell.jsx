@@ -50,14 +50,19 @@ export default function Shell({ me, onLogout }) {
 
   const askNotif = async () => setNotif(await Notification.requestPermission());
 
+  const can = (c) => me.perms?.includes('all') || me.perms?.includes(c);
   const items = [
     ['dashboard', '📊', 'Dashboard'],
     ['conversations', '💬', 'Percakapan'],
     ['contacts', '👥', 'Kontak'],
     ['pipeline', '🎯', 'Pipeline'],
     ['broadcast', '📢', 'Broadcast'],
-    ...((me.is_admin || me.role === 'supervisor') ? [['reports', '📈', 'Laporan']] : []),
-    ...(me.is_admin ? [['agents', '🧑‍💼', 'Agen'], ['templates', '📄', 'Template'], ['quick', '⚡', 'Balasan Cepat'], ['channels', '📱', 'Nomor'], ['settings', '⚙️', 'Setting']] : []),
+    ...(can('reports') ? [['reports', '📈', 'Laporan']] : []),
+    ...(can('agents') ? [['agents', '🧑‍💼', 'Agen']] : []),
+    ...(can('templates') ? [['templates', '📄', 'Template']] : []),
+    ...(can('quick') ? [['quick', '⚡', 'Balasan Cepat']] : []),
+    ...(can('channels') ? [['channels', '📱', 'Nomor']] : []),
+    ...(can('settings') ? [['settings', '⚙️', 'Setting']] : []),
   ];
 
   const openChat = (wa) => { setActive(wa); setNav('conversations'); };

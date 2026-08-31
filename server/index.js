@@ -14,7 +14,8 @@ import {
   initReminders, createReminder, listReminders, dueReminders, markReminderDone, deleteReminder,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
-import { mountAuth, requireAuth, requireAdmin, requireReports, initAuth } from './auth.js';
+import { mountAuth, requireAuth, requireAdmin, requireReports, requireCap, initAuth } from './auth.js';
+import { initRoles, listRoles, upsertRole, deleteRole } from './db.js';
 import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 import { readMedia, storeMedia } from './store.js';
 import { aiReply } from './ai.js';
@@ -192,8 +193,8 @@ app.post('/api/send-media', async (req, res) => {
 });
 
 // Setting koneksi WA (admin) — ubah key tanpa sentuh .env
-app.get('/api/settings', requireAdmin, (_req, res) => res.json(getConfigView()));
-app.patch('/api/settings', requireAdmin, async (req, res) => {
+app.get('/api/settings', requireCap('settings'), (_req, res) => res.json(getConfigView()));
+app.patch('/api/settings', requireCap('settings'), async (req, res) => {
   await setConfig(req.body);
   res.json(getConfigView());
 });
@@ -217,9 +218,21 @@ setInterval(async () => {
   } catch (e) { console.error('reminder tick', e.message); }
 }, 60000);
 
+// ===== Roles & hak akses =====
+app.get('/api/roles', async (_req, res) => res.json(await listRoles())); // dipakai form agen (semua login)
+app.post('/api/roles', requireCap('agents'), async (req, res) => {
+  const { name, label, perms } = req.body;
+  if (!name || !/^[a-z0-9_]+$/.test(name)) return res.status(400).json({ error: 'nama role huruf kecil/angka/garis bawah' });
+  await upsertRole(name, label || name, Array.isArray(perms) ? perms : []); res.json({ ok: true });
+});
+app.delete('/api/roles/:name', requireCap('agents'), async (req, res) => {
+  if (['admin', 'agen'].includes(req.params.name)) return res.status(400).json({ error: 'role bawaan tak bisa dihapus' });
+  await deleteRole(req.params.name); res.json({ ok: true });
+});
+
 // ===== Auto-assign toggle =====
 app.get('/api/auto-assign', async (_req, res) => res.json({ on: (await getSetting('AUTO_ASSIGN')) === '1' }));
-app.post('/api/auto-assign', requireAdmin, async (req, res) => { await setSetting('AUTO_ASSIGN', req.body.on ? '1' : '0'); res.json({ on: !!req.body.on }); });
+app.post('/api/auto-assign', requireCap('settings'), async (req, res) => { await setSetting('AUTO_ASSIGN', req.body.on ? '1' : '0'); res.json({ on: !!req.body.on }); });
 
 // ===== AI (DeepSeek) =====
 // funnel = array of string (langkah). knowledge = array of {title, body}. (kompat teks lama)
@@ -246,13 +259,13 @@ app.post('/api/ai-suggest', async (req, res) => {
     res.json({ text: await aiReply(await aiSystem(), history) });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
-app.get('/api/ai-config', requireAdmin, async (_req, res) => res.json({
+app.get('/api/ai-config', requireCap('settings'), async (_req, res) => res.json({
   system: (await getSetting('AI_SYSTEM')) || '',
   funnel: parseFunnel(await getSetting('AI_FUNNEL')),          // array of string
   knowledge: parseKnow(await getSetting('AI_KNOWLEDGE')),      // array of {title, body}
   handover: (await getSetting('AI_HANDOVER_TEXT')) || '',
 }));
-app.post('/api/ai-config', requireAdmin, async (req, res) => {
+app.post('/api/ai-config', requireCap('settings'), async (req, res) => {
   if (req.body.system !== undefined) await setSetting('AI_SYSTEM', req.body.system);
   if (req.body.funnel !== undefined) await setSetting('AI_FUNNEL', JSON.stringify(req.body.funnel));
   if (req.body.knowledge !== undefined) await setSetting('AI_KNOWLEDGE', JSON.stringify(req.body.knowledge));
@@ -262,7 +275,7 @@ app.post('/api/ai-config', requireAdmin, async (req, res) => {
 
 // ===== Auto-reply (greeting) =====
 app.get('/api/auto-reply', async (_req, res) => res.json({ on: (await getSetting('AUTO_REPLY')) === '1', text: (await getSetting('AUTO_REPLY_TEXT')) || '' }));
-app.post('/api/auto-reply', requireAdmin, async (req, res) => {
+app.post('/api/auto-reply', requireCap('settings'), async (req, res) => {
   await setSetting('AUTO_REPLY', req.body.on ? '1' : '0');
   if (req.body.text !== undefined) await setSetting('AUTO_REPLY_TEXT', req.body.text);
   res.json({ ok: true });
@@ -270,26 +283,26 @@ app.post('/api/auto-reply', requireAdmin, async (req, res) => {
 
 // ===== Balasan cepat =====
 app.get('/api/quick-replies', async (_req, res) => res.json(await listQuickReplies()));
-app.post('/api/quick-replies', requireAdmin, async (req, res) => {
+app.post('/api/quick-replies', requireCap('quick'), async (req, res) => {
   const { title, body } = req.body;
   if (!title || !body) return res.status(400).json({ error: 'judul & isi wajib' });
   res.json({ id: await createQuickReply(title, body) });
 });
-app.delete('/api/quick-replies/:id', requireAdmin, async (req, res) => {
+app.delete('/api/quick-replies/:id', requireCap('quick'), async (req, res) => {
   await deleteQuickReply(req.params.id); res.json({ ok: true });
 });
 
 // ===== Pipeline (multi, custom) =====
 app.get('/api/pipelines', async (_req, res) => res.json(await listPipelines()));
-app.post('/api/pipelines', requireAdmin, async (req, res) => {
+app.post('/api/pipelines', requireCap('pipeline_admin'), async (req, res) => {
   const { name, stages } = req.body;
   if (!name || !Array.isArray(stages) || !stages.length) return res.status(400).json({ error: 'name & stages wajib' });
   res.json({ id: await createPipeline(name, stages) });
 });
-app.patch('/api/pipelines/:id', requireAdmin, async (req, res) => {
+app.patch('/api/pipelines/:id', requireCap('pipeline_admin'), async (req, res) => {
   await updatePipeline(req.params.id, req.body.name, req.body.stages); res.json({ ok: true });
 });
-app.delete('/api/pipelines/:id', requireAdmin, async (req, res) => {
+app.delete('/api/pipelines/:id', requireCap('pipeline_admin'), async (req, res) => {
   await deletePipeline(req.params.id); res.json({ ok: true });
 });
 
@@ -308,16 +321,16 @@ app.get('/api/channels', async (_req, res) => {
   }
   res.json(rows.map((c) => ({ id: c.id, label: c.label, phone_id: c.phone_id, phone_number: c.phone_number || null, waba_id: c.waba_id, hasToken: !!c.token, ai_enabled: !!c.ai_enabled })));
 });
-app.post('/api/channels', requireAdmin, async (req, res) => {
+app.post('/api/channels', requireCap('channels'), async (req, res) => {
   const { label, phone_id, waba_id, token } = req.body;
   if (!label || !phone_id || !waba_id) return res.status(400).json({ error: 'label, phone_id, waba_id wajib' });
   try { const id = await createChannel({ label, phone_id, waba_id, token }); res.json({ id }); }
   catch { res.status(409).json({ error: 'phone_id sudah terdaftar' }); }
 });
-app.delete('/api/channels/:id', requireAdmin, async (req, res) => {
+app.delete('/api/channels/:id', requireCap('channels'), async (req, res) => {
   await deleteChannel(req.params.id); res.json({ ok: true });
 });
-app.post('/api/channels/:id/ai', requireAdmin, async (req, res) => {
+app.post('/api/channels/:id/ai', requireCap('channels'), async (req, res) => {
   await setChannelAi(req.params.id, req.body.on); res.json({ on: !!req.body.on });
 });
 
@@ -331,11 +344,11 @@ app.get('/api/templates', async (req, res) => {
 });
 
 // Kelola template (admin): lihat semua status + bikin baru
-app.get('/api/templates/all', requireAdmin, async (req, res) => {
+app.get('/api/templates/all', requireCap('templates'), async (req, res) => {
   try { res.json(await listAllTemplates(await pickChannel({ channel_id: req.query.channel_id }))); }
   catch (e) { res.status(502).json({ error: e.message }); }
 });
-app.post('/api/templates', requireAdmin, async (req, res) => {
+app.post('/api/templates', requireCap('templates'), async (req, res) => {
   try {
     // target: satu channel, atau semua WABA berbeda (all_channels)
     let targets;
@@ -453,6 +466,7 @@ await initChannels();
 await initPipelines();
 await initQuickReplies();
 await initReminders();
+await initRoles();
 await initAuth();
 await loadConfig();
 if ((await listPipelines()).length === 0) {
