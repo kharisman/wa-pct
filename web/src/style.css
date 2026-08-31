@@ -344,3 +344,14 @@ body { color: #1b2340; }
 .conv-reset { background: none; border: 0; color: #dc2626; cursor: pointer; font-size: 12px; font: inherit; padding: 4px; white-space: nowrap; }
 .ai-th { flex: none; border: 1px solid #cbd5e6; background: #eaf7ef; color: #157a54; border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .ai-th.off { background: #fdecea; color: #c0392b; border-color: #f0c4bf; }
+
+/* Loading global */
+.gloader-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 9999;
+  background: linear-gradient(90deg, transparent, #fdc820, #152159, transparent);
+  background-size: 50% 100%; animation: gload 1s linear infinite; }
+@keyframes gload { 0% { background-position: -50% 0; } 100% { background-position: 150% 0; } }
+.gloader-spin { position: fixed; bottom: 16px; right: 16px; z-index: 9999; background: #152159; color: #fff;
+  padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
+.spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fdc820; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .gloader-bar, .spinner { animation-duration: 2s; } }
