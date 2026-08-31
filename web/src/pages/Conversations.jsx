@@ -32,13 +32,29 @@ export default function Conversations({ me, active, setActive }) {
 
   const [qy, setQy] = useState('');
   const [limit, setLimit] = useState(25);
+  const [fChan, setFChan] = useState('');
+  const [fDate, setFDate] = useState('');
+  const [channels, setChannels] = useState([]);
+  useEffect(() => { api('/channels').then(setChannels); }, []);
+
+  const dateCutoff = (preset) => {
+    const now = new Date();
+    if (preset === 'today') { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); }
+    if (preset === '7d') return now.getTime() - 7 * 864e5;
+    if (preset === '30d') return now.getTime() - 30 * 864e5;
+    return 0;
+  };
+  const cutoff = dateCutoff(fDate);
+
   const shown = convs.filter((c) =>
     (filter === 'mine' ? c.assignee === me.email
       : filter === 'unassigned' ? !c.assignee
         : filter === 'unreplied' ? needsReply(c)
           : true)
-    && (!qy || (c.name || '').toLowerCase().includes(qy.toLowerCase()) || c.wa_id.includes(qy)));
-  useEffect(() => { setLimit(25); }, [filter, qy]);
+    && (!qy || (c.name || '').toLowerCase().includes(qy.toLowerCase()) || c.wa_id.includes(qy))
+    && (!fChan || String(c.channel_id) === fChan)
+    && (!cutoff || (c.last_at && c.last_at >= cutoff)));
+  useEffect(() => { setLimit(25); }, [filter, qy, fChan, fDate]);
   const rendered = shown.slice(0, limit);
 
   const [hasMore, setHasMore] = useState(false);
@@ -138,6 +154,21 @@ export default function Conversations({ me, active, setActive }) {
         </div>
         <div className="conv-search">
           <input placeholder="🔍 Cari nama / nomor…" value={qy} onChange={(e) => setQy(e.target.value)} />
+          <div className="conv-filters">
+            {channels.length > 1 && (
+              <select value={fChan} onChange={(e) => setFChan(e.target.value)}>
+                <option value="">Semua nomor</option>
+                {channels.map((c) => <option key={c.id} value={c.id}>📱 {c.label}</option>)}
+              </select>
+            )}
+            <select value={fDate} onChange={(e) => setFDate(e.target.value)}>
+              <option value="">Semua waktu</option>
+              <option value="today">Hari ini</option>
+              <option value="7d">7 hari terakhir</option>
+              <option value="30d">30 hari terakhir</option>
+            </select>
+            {(fChan || fDate || qy) && <button className="conv-reset" onClick={() => { setFChan(''); setFDate(''); setQy(''); }}>✕ reset</button>}
+          </div>
         </div>
         {rendered.map((c) => (
           <div key={c.wa_id} className={'conv' + (c.wa_id === active ? ' active' : '') + (needsReply(c) ? ' needs-reply' : '')} onClick={() => setActive(c.wa_id)}>
