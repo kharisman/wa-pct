@@ -324,3 +324,16 @@ body { color: #1b2340; }
 .flow { margin: 8px 0 6px; }
 .sub-label { margin-top: 16px; }
 .card form + form { margin-top: 8px; }
+
+/* Daftar percakapan: search + more + rapikan */
+.conv-search { padding: 8px 10px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: #fff; z-index: 2; }
+.conv-search input { width: 100%; padding: 8px 10px; border: 1px solid #d5dbe6; border-radius: 8px; font: inherit; background: #f7f8fa; }
+.conv-search input:focus { outline: none; border-color: #152159; background: #fff; }
+.conv { padding: 11px 14px; }
+.conv .name { display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv .name > :first-child { overflow: hidden; text-overflow: ellipsis; }
+.conv .last { margin-top: 2px; }
+.conv .chan-badge { margin: 3px 0; }
+.conv .sla-badge { margin-left: auto; }
+.conv-more { display: block; width: calc(100% - 20px); margin: 10px; padding: 9px; background: #eef1fb; color: #152159; border: 0; border-radius: 8px; cursor: pointer; font-weight: 600; font: inherit; }
+.conv-more:hover { background: #e2e8fa; }

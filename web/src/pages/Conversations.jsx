@@ -30,11 +30,16 @@ export default function Conversations({ me, active, setActive }) {
   const needsReply = (c) => c.last_dir === 'in' && Date.now() - c.last_at > SLA_MIN * 60000;
   const mins = (c) => Math.floor((Date.now() - c.last_at) / 60000);
 
+  const [qy, setQy] = useState('');
+  const [limit, setLimit] = useState(25);
   const shown = convs.filter((c) =>
-    filter === 'mine' ? c.assignee === me.email
+    (filter === 'mine' ? c.assignee === me.email
       : filter === 'unassigned' ? !c.assignee
         : filter === 'unreplied' ? needsReply(c)
-          : true);
+          : true)
+    && (!qy || (c.name || '').toLowerCase().includes(qy.toLowerCase()) || c.wa_id.includes(qy)));
+  useEffect(() => { setLimit(25); }, [filter, qy]);
+  const rendered = shown.slice(0, limit);
 
   const [hasMore, setHasMore] = useState(false);
   useEffect(() => {
@@ -131,7 +136,10 @@ export default function Conversations({ me, active, setActive }) {
             ))}
           </div>
         </div>
-        {shown.map((c) => (
+        <div className="conv-search">
+          <input placeholder="🔍 Cari nama / nomor…" value={qy} onChange={(e) => setQy(e.target.value)} />
+        </div>
+        {rendered.map((c) => (
           <div key={c.wa_id} className={'conv' + (c.wa_id === active ? ' active' : '') + (needsReply(c) ? ' needs-reply' : '')} onClick={() => setActive(c.wa_id)}>
             <div className="name">{c.name || c.wa_id}{c.assignee && <span className="who"> · {c.assignee === me.email ? 'saya' : c.assignee.split('@')[0]}</span>}
               {needsReply(c) && <span className="sla-badge">⏱ {mins(c)}m</span>}
@@ -142,6 +150,9 @@ export default function Conversations({ me, active, setActive }) {
           </div>
         ))}
         {shown.length === 0 && <div style={{ padding: 14, color: '#999' }}>Tidak ada chat.</div>}
+        {shown.length > limit && (
+          <button className="conv-more" onClick={() => setLimit((l) => l + 25)}>Muat lebih banyak ({shown.length - limit})</button>
+        )}
       </div>
 
       {active ? (
