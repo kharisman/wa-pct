@@ -111,7 +111,7 @@ export default function Templates() {
                   <option value="PHONE_NUMBER">Telepon</option>
                 </select>
                 <input placeholder="Teks tombol" value={b.text} onChange={(e) => setButtons(buttons.map((x, j) => j === i ? { ...x, text: e.target.value } : x))} />
-                {b.type === 'URL' && <input placeholder="https://…" value={b.url || ''} onChange={(e) => setButtons(buttons.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} />}
+                {b.type === 'URL' && <input placeholder="https://…/{{1}} (boleh variabel)" value={b.url || ''} onChange={(e) => setButtons(buttons.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} />}
                 {b.type === 'PHONE_NUMBER' && <input placeholder="+62…" value={b.phone_number || ''} onChange={(e) => setButtons(buttons.map((x, j) => j === i ? { ...x, phone_number: e.target.value } : x))} />}
                 <button type="button" className="link" onClick={() => setButtons(buttons.filter((_, j) => j !== i))}>×</button>
               </div>

@@ -397,12 +397,14 @@ app.post('/api/templates', requireCap('templates'), async (req, res) => {
 
 // Kirim template ke satu kontak (buat buka window 24 jam / re-engage)
 app.post('/api/send-template', async (req, res) => {
-  const { wa_id, name, language, params: rawParams, sources, text: tplText, headerMedia } = req.body;
+  const { wa_id, name, language, params: rawParams, sources, text: tplText, headerMedia, buttonSource, buttonIndex } = req.body;
   if (!wa_id || !name || !language) return res.status(400).json({ error: 'wa_id, name, language wajib' });
   try {
     const contact = await getContact(wa_id);
     const params = sources ? resolveParams(sources, contact) : (rawParams || []);
     const preview = fillPreview(tplText, params, name);
+    const btnText = buttonSource ? resolveParams([buttonSource], contact)[0] : undefined;
+    const btn = (buttonIndex != null && btnText != null) ? { index: buttonIndex, text: btnText } : undefined;
     const ch = await chanOf(wa_id);
     let headerImageId;
     if (headerMedia?.data) {
@@ -416,7 +418,7 @@ app.post('/api/send-template', async (req, res) => {
       }
     }
     await upsertContact(wa_id, null, ch?.id);
-    const waMsgId = await sendTemplate(ch, wa_id, name, language, params, headerImageId);
+    const waMsgId = await sendTemplate(ch, wa_id, name, language, params, headerImageId, btn);
     const body = preview || `[template: ${name}]`;
     const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent', sentBy: req.user.name, channelId: ch?.id });
     const message = { id, direction: 'out', body, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() };
@@ -427,7 +429,7 @@ app.post('/api/send-template', async (req, res) => {
 
 // Broadcast: kirim 1 template ke banyak kontak. params sama untuk semua (personalisasi nyusul).
 app.post('/api/broadcast', async (req, res) => {
-  const { name, language, params: rawParams, sources, text: tplText, wa_ids = [] } = req.body;
+  const { name, language, params: rawParams, sources, text: tplText, wa_ids = [], buttonSource, buttonIndex } = req.body;
   if (!name || !language || wa_ids.length === 0)
     return res.status(400).json({ error: 'name, language, wa_ids wajib' });
   let sent = 0; const failed = [];
@@ -438,6 +440,8 @@ app.post('/api/broadcast', async (req, res) => {
       const contact = await getContact(wa_id);
       const params = sources ? resolveParams(sources, contact) : (rawParams || []); // nilai per kontak (nama/nomor)
       const preview = fillPreview(tplText, params, name);
+      const btnText = buttonSource ? resolveParams([buttonSource], contact)[0] : undefined;
+      const btn = (buttonIndex != null && btnText != null) ? { index: buttonIndex, text: btnText } : undefined;
       const ch = contact?.channel_id ? await getChannel(contact.channel_id) : null;
       let headerImageId;
       if (def) {
@@ -448,7 +452,7 @@ app.post('/api/broadcast', async (req, res) => {
         }
         headerImageId = hdrCache.get(key);
       }
-      const waMsgId = await sendTemplate(ch, wa_id, name, language, params, headerImageId);
+      const waMsgId = await sendTemplate(ch, wa_id, name, language, params, headerImageId, btn);
       const id = await insertMessage({ waId: wa_id, direction: 'out', body: preview, waMsgId, status: 'sent', sentBy: req.user.name, channelId: ch?.id });
       broadcast({ kind: 'message', wa_id, message: { id, direction: 'out', body: preview, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() } });
       sent++;

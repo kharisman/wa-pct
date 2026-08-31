@@ -12,6 +12,7 @@ export default function BroadcastPage() {
   const [tpls, setTpls] = useState(null);
   const [sel, setSel] = useState(null);
   const [sources, setSources] = useState([]);
+  const [btnSrc, setBtnSrc] = useState({ type: 'text', value: '' });
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -40,7 +41,9 @@ export default function BroadcastPage() {
 
   const send = async () => {
     setBusy(true);
-    const res = await post('/broadcast', { name: sel.name, language: sel.language, sources, text: sel.text, wa_ids: finalTargets.map((c) => c.wa_id) });
+    const body = { name: sel.name, language: sel.language, sources, text: sel.text, wa_ids: finalTargets.map((c) => c.wa_id) };
+    if (sel.btnUrlIndex != null) { body.buttonIndex = sel.btnUrlIndex; body.buttonSource = btnSrc; }
+    const res = await post('/broadcast', body);
     setResult(await res.json()); setBusy(false);
   };
 
@@ -127,6 +130,18 @@ export default function BroadcastPage() {
                   </div>
                 </div>
               ))}
+              {sel?.btnUrlIndex != null && (
+                <div className="field"><label>Variabel di tombol link 🔗</label>
+                  <div className="var-row">
+                    <select value={btnSrc.type} onChange={(e) => setBtnSrc({ ...btnSrc, type: e.target.value })}>
+                      <option value="name">Nama kontak</option>
+                      <option value="phone">Nomor kontak</option>
+                      <option value="text">Teks manual</option>
+                    </select>
+                    {btnSrc.type === 'text' && <input placeholder="isi variabel link…" value={btnSrc.value} onChange={(e) => setBtnSrc({ ...btnSrc, value: e.target.value })} />}
+                  </div>
+                </div>
+              )}
               {sel && sources.length > 0 && <small className="muted">Preview memakai contoh dari penerima pertama. Tiap kontak dapat nilainya sendiri.</small>}
               {sel && (
                 <div className="wa-preview" style={{ marginTop: 8 }}>

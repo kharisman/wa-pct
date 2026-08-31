@@ -21,8 +21,10 @@ export async function listTemplates(ch) {
   return (d.data || []).filter((t) => t.status === 'APPROVED').map((t) => {
     const body = t.components?.find((c) => c.type === 'BODY');
     const header = t.components?.find((c) => c.type === 'HEADER');
+    const buttons = t.components?.find((c) => c.type === 'BUTTONS')?.buttons || [];
+    const bi = buttons.findIndex((b) => b.type === 'URL' && /\{\{\d+\}\}/.test(b.url || ''));
     const params = (body?.text?.match(/\{\{\d+\}\}/g) || []).length;
-    return { name: t.name, language: t.language, text: body?.text || '', params, headerType: header?.format || null };
+    return { name: t.name, language: t.language, text: body?.text || '', params, headerType: header?.format || null, btnUrlIndex: bi >= 0 ? bi : null };
   });
 }
 
@@ -63,7 +65,7 @@ export async function createTemplate(ch, { name, category, language, body, examp
   components.push(bodyComp);
   if (footer) components.push({ type: 'FOOTER', text: footer });
   const btns = buttons.filter((b) => b.text).map((b) =>
-    b.type === 'URL' ? { type: 'URL', text: b.text, url: b.url }
+    b.type === 'URL' ? { type: 'URL', text: b.text, url: b.url, ...(/\{\{\d+\}\}/.test(b.url || '') ? { example: [b.url.replace(/\{\{\d+\}\}/g, 'contoh')] } : {}) }
       : b.type === 'PHONE_NUMBER' ? { type: 'PHONE_NUMBER', text: b.text, phone_number: b.phone_number }
         : { type: 'QUICK_REPLY', text: b.text });
   if (btns.length) components.push({ type: 'BUTTONS', buttons: btns });
@@ -77,10 +79,11 @@ export async function createTemplate(ch, { name, category, language, body, examp
   return d;
 }
 
-export async function sendTemplate(ch, to, name, language, bodyParams = [], headerImageId) {
+export async function sendTemplate(ch, to, name, language, bodyParams = [], headerImageId, btn) {
   const components = [];
   if (headerImageId) components.push({ type: 'header', parameters: [{ type: 'image', image: { id: headerImageId } }] });
   if (bodyParams.length) components.push({ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) });
+  if (btn && btn.text != null && btn.index != null) components.push({ type: 'button', sub_type: 'url', index: String(btn.index), parameters: [{ type: 'text', text: btn.text }] });
   const res = await fetch(`${API}/${phone(ch)}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${tok(ch)}`, 'Content-Type': 'application/json' },

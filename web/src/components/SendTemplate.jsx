@@ -6,6 +6,7 @@ export default function SendTemplate({ waId, onClose, onSent }) {
   const [tpls, setTpls] = useState(null);
   const [sel, setSel] = useState(null);
   const [sources, setSources] = useState([]);
+  const [btnSrc, setBtnSrc] = useState({ type: 'text', value: '' });
   const [hFile, setHFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -25,7 +26,9 @@ export default function SendTemplate({ waId, onClose, onSent }) {
       const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result.split(',')[1]); r.readAsDataURL(hFile); });
       headerMedia = { mime: hFile.type, filename: hFile.name, data };
     }
-    const res = await post('/send-template', { wa_id: waId, name: sel.name, language: sel.language, sources, text: sel.text, headerMedia });
+    const body = { wa_id: waId, name: sel.name, language: sel.language, sources, text: sel.text, headerMedia };
+    if (sel.btnUrlIndex != null) { body.buttonIndex = sel.btnUrlIndex; body.buttonSource = btnSrc; }
+    const res = await post('/send-template', body);
     const d = await res.json();
     setBusy(false);
     if (!res.ok) return setErr(d.error);
@@ -60,6 +63,17 @@ export default function SendTemplate({ waId, onClose, onSent }) {
                   onChange={(e) => setSources(sources.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} />}
               </div>
             ))}
+            {sel?.btnUrlIndex != null && (
+              <div className="var-row" title="Variabel di tombol link">
+                🔗
+                <select value={btnSrc.type} onChange={(e) => setBtnSrc({ ...btnSrc, type: e.target.value })}>
+                  <option value="name">Nama kontak</option>
+                  <option value="phone">Nomor kontak</option>
+                  <option value="text">Teks manual</option>
+                </select>
+                {btnSrc.type === 'text' && <input placeholder="isi variabel link" value={btnSrc.value} onChange={(e) => setBtnSrc({ ...btnSrc, value: e.target.value })} />}
+              </div>
+            )}
             {sel && <div className="preview">{preview}</div>}
             {err && <div className="err">{err}</div>}
             <div className="modal-actions">
