@@ -14,7 +14,7 @@ import {
   initReminders, createReminder, listReminders, dueReminders, markReminderDone, deleteReminder,
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
-import { mountAuth, requireAuth, requireAdmin, initAuth } from './auth.js';
+import { mountAuth, requireAuth, requireAdmin, requireReports, initAuth } from './auth.js';
 import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 import { readMedia, storeMedia } from './store.js';
 import { aiReply } from './ai.js';
@@ -127,8 +127,8 @@ app.post('/webhook', (req, res) => {
 app.use('/api', requireAuth); // semua /api di bawah ini butuh login
 
 app.get('/api/stats', async (_req, res) => res.json(await stats()));
-app.get('/api/reports/agents', requireAdmin, async (_req, res) => res.json(await agentReport()));
-app.get('/api/reports/pipeline', requireAdmin, async (_req, res) => res.json(await pipelineFunnel()));
+app.get('/api/reports/agents', requireReports, async (_req, res) => res.json(await agentReport()));
+app.get('/api/reports/pipeline', requireReports, async (_req, res) => res.json(await pipelineFunnel()));
 app.get('/api/conversations', async (_req, res) => res.json(await listConversations()));
 app.get('/api/messages/:waId', async (req, res) => res.json(await listMessages(req.params.waId, req.query.before)));
 

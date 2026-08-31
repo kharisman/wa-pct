@@ -56,7 +56,8 @@ export default function Shell({ me, onLogout }) {
     ['contacts', '👥', 'Kontak'],
     ['pipeline', '🎯', 'Pipeline'],
     ['broadcast', '📢', 'Broadcast'],
-    ...(me.is_admin ? [['reports', '📈', 'Laporan'], ['agents', '🧑‍💼', 'Agen'], ['templates', '📄', 'Template'], ['quick', '⚡', 'Balasan Cepat'], ['channels', '📱', 'Nomor'], ['settings', '⚙️', 'Setting']] : []),
+    ...((me.is_admin || me.role === 'supervisor') ? [['reports', '📈', 'Laporan']] : []),
+    ...(me.is_admin ? [['agents', '🧑‍💼', 'Agen'], ['templates', '📄', 'Template'], ['quick', '⚡', 'Balasan Cepat'], ['channels', '📱', 'Nomor'], ['settings', '⚙️', 'Setting']] : []),
   ];
 
   const openChat = (wa) => { setActive(wa); setNav('conversations'); };

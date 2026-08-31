@@ -64,13 +64,18 @@ export async function requireAuth(req, res, next) {
     const token = parseCookie(req.headers.cookie).sid;
     const s = token && (await q('SELECT email FROM sessions WHERE token=$1', [token])).rows[0];
     if (!s) return res.status(401).json({ error: 'unauthorized' });
-    req.user = (await q('SELECT email, name, is_admin FROM users WHERE email=$1', [s.email])).rows[0];
+    req.user = (await q('SELECT email, name, is_admin, role, division, jabatan FROM users WHERE email=$1', [s.email])).rows[0];
     next();
   } catch (e) { next(e); }
 }
 
 export function requireAdmin(req, res, next) {
   if (!req.user?.is_admin) return res.status(403).json({ error: 'khusus admin' });
+  next();
+}
+// Laporan: admin atau supervisor
+export function requireReports(req, res, next) {
+  if (!req.user?.is_admin && req.user?.role !== 'supervisor') return res.status(403).json({ error: 'akses ditolak' });
   next();
 }
 
