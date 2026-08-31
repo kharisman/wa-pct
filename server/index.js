@@ -6,7 +6,7 @@ import {
   upsertContact, insertMessage, updateStatus,
   listConversations, listMessages, getContact, updateContact, setContactAiOff, initDb, stats, agentReport, pipelineFunnel,
   initTplMedia, setTplMedia, getTplMedia,
-  initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel, setChannelAi,
+  initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel, setChannelAi, setChannelNumber,
   setContactChannel, q,
   initPipelines, listPipelines, createPipeline, updatePipeline, deletePipeline,
   initQuickReplies, listQuickReplies, createQuickReply, deleteQuickReply,
@@ -296,7 +296,17 @@ app.delete('/api/pipelines/:id', requireAdmin, async (req, res) => {
 // ===== Kelola nomor (channels) =====
 app.get('/api/channels', async (_req, res) => {
   const rows = await listChannels();
-  res.json(rows.map((c) => ({ id: c.id, label: c.label, phone_id: c.phone_id, waba_id: c.waba_id, hasToken: !!c.token, ai_enabled: !!c.ai_enabled })));
+  // ambil nomor asli dari Meta sekali, lalu cache
+  for (const c of rows) {
+    if (!c.phone_number) {
+      try {
+        const token = c.token || cfg('WA_TOKEN');
+        const d = await (await fetch(`https://graph.facebook.com/v22.0/${c.phone_id}?fields=display_phone_number&access_token=${token}`)).json();
+        if (d.display_phone_number) { c.phone_number = d.display_phone_number; await setChannelNumber(c.id, d.display_phone_number); }
+      } catch { /* diamkan */ }
+    }
+  }
+  res.json(rows.map((c) => ({ id: c.id, label: c.label, phone_id: c.phone_id, phone_number: c.phone_number || null, waba_id: c.waba_id, hasToken: !!c.token, ai_enabled: !!c.ai_enabled })));
 });
 app.post('/api/channels', requireAdmin, async (req, res) => {
   const { label, phone_id, waba_id, token } = req.body;

@@ -26,12 +26,12 @@ export default function Channels() {
       <h1 className="page-title">Nomor WhatsApp <small>({rows.length})</small></h1>
       <div className="card nopad">
         <table className="tbl">
-          <thead><tr><th>Label</th><th>Phone ID</th><th>Token</th><th>AI otomatis</th><th></th></tr></thead>
+          <thead><tr><th>Label</th><th>Nomor WA</th><th>Token</th><th>AI otomatis</th><th></th></tr></thead>
           <tbody>
             {rows.map((c) => (
               <tr key={c.id}>
                 <td><b>{c.label}</b></td>
-                <td className="mono">{c.phone_id}</td>
+                <td><span className="mono">{c.phone_number || '—'}</span><br /><small className="muted">ID: {c.phone_id}</small></td>
                 <td>{c.hasToken ? '✓ sendiri' : 'global'}</td>
                 <td>
                   <label className="ai-toggle">
