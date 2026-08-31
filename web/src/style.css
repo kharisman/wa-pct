@@ -355,3 +355,7 @@ body { color: #1b2340; }
 .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fdc820; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .gloader-bar, .spinner { animation-duration: 2s; } }
+.role-badge { background: #eef1fb; color: #152159; border-radius: 8px; padding: 2px 9px; font-size: 12px; font-weight: 600; text-transform: capitalize; }
+.mini-select, .mini-input { padding: 6px 8px; border: 1px solid #d5dbe6; border-radius: 6px; font: inherit; font-size: 13px; width: 100%; max-width: 140px; background: #fff; }
+.mini-input { max-width: 130px; }
+.addrow select { padding: 8px; border: 1px solid #ccc; border-radius: 7px; font: inherit; min-width: 120px; }

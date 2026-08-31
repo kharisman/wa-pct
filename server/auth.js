@@ -17,6 +17,9 @@ export async function initAuth() {
       created_at bigint NOT NULL
     );
   `);
+  await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS role text');
+  await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS division text');
+  await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS jabatan text');
   const WEEK = 7 * 24 * 3600 * 1000;
   await q('DELETE FROM sessions WHERE created_at < $1', [Date.now() - WEEK]);
 }
@@ -24,14 +27,25 @@ export async function initAuth() {
 const hash = (pw, salt = randomBytes(16).toString('hex')) =>
   `${salt}:${scryptSync(pw, salt, 32).toString('hex')}`;
 
-export async function createUser(email, name, pw, isAdmin) {
+// role: 'admin' | 'supervisor' | 'agen' (admin = akses penuh)
+export async function createUser(email, name, pw, opts = {}) {
   const first = (await q('SELECT COUNT(*)::int n FROM users')).rows[0].n === 0;
-  await q('INSERT INTO users(email,name,pass,is_admin,created_at) VALUES($1,$2,$3,$4,$5)',
-    [email.toLowerCase(), name, hash(pw), (isAdmin ?? first) ? 1 : 0, Date.now()]);
+  const role = opts.role || (first ? 'admin' : 'agen');
+  await q('INSERT INTO users(email,name,pass,is_admin,role,division,jabatan,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+    [email.toLowerCase(), name, hash(pw), role === 'admin' ? 1 : 0, role, opts.division || null, opts.jabatan || null, Date.now()]);
+}
+
+export async function updateUser(email, { role, division, jabatan }) {
+  await q(`UPDATE users SET
+      role     = COALESCE($1, role),
+      is_admin = CASE WHEN $1 IS NULL THEN is_admin WHEN $1='admin' THEN 1 ELSE 0 END,
+      division = COALESCE($2, division),
+      jabatan  = COALESCE($3, jabatan)
+    WHERE email=$4`, [role ?? null, division ?? null, jabatan ?? null, email.toLowerCase()]);
 }
 
 export const listUsers = async () =>
-  (await q('SELECT email, name, is_admin FROM users ORDER BY created_at')).rows;
+  (await q('SELECT email, name, is_admin, role, division, jabatan FROM users ORDER BY created_at')).rows;
 
 async function verify(email, pw) {
   const u = (await q('SELECT * FROM users WHERE email=$1', [email.toLowerCase()])).rows[0];
@@ -78,10 +92,13 @@ export function mountAuth(app) {
   app.get('/api/users', requireAuth, async (_req, res) => res.json(await listUsers()));
 
   app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
-    const { email, name, password } = req.body;
+    const { email, name, password, role, division, jabatan } = req.body;
     if (!email || !name || !password) return res.status(400).json({ error: 'email, nama, password wajib' });
-    try { await createUser(email, name, password, false); res.json({ ok: true }); }
+    try { await createUser(email, name, password, { role, division, jabatan }); res.json({ ok: true }); }
     catch { res.status(409).json({ error: 'email sudah dipakai' }); }
+  });
+  app.patch('/api/users/:email', requireAuth, requireAdmin, async (req, res) => {
+    await updateUser(req.params.email, req.body); res.json({ ok: true });
   });
   app.delete('/api/users/:email', requireAuth, requireAdmin, async (req, res) => {
     if (req.params.email === req.user.email) return res.status(400).json({ error: 'tak bisa hapus diri sendiri' });
