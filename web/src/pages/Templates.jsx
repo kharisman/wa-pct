@@ -88,6 +88,11 @@ export default function Templates() {
           </div>
 
           <div className="field"><label>Isi pesan (Body)</label>
+            <div className="var-insert">
+              <span>Sisipkan variabel:</span>
+              <button type="button" onClick={() => setF((s) => ({ ...s, body: s.body + `{{${(s.body.match(/\{\{\d+\}\}/g) || []).length + 1}}}` }))}>＋ Variabel {`{{${nVars + 1}}}`}</button>
+              <small>nilainya (nama/nomor/teks) dipilih saat kirim</small>
+            </div>
             <textarea value={f.body} rows={4} placeholder="Halo {{1}}, ada promo spesial untukmu!" onChange={(e) => setF({ ...f, body: e.target.value })} /></div>
           {examples.map((ex, i) => (
             <div className="field" key={i}><label>Contoh isi {`{{${i + 1}}}`}</label>
