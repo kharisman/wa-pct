@@ -5,14 +5,15 @@ import { post } from '../api.js';
 export default function SendTemplate({ waId, onClose, onSent }) {
   const [tpls, setTpls] = useState(null);
   const [sel, setSel] = useState(null);
-  const [params, setParams] = useState([]);
+  const [sources, setSources] = useState([]);
   const [hFile, setHFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => { fetch('/api/templates?wa_id=' + waId).then((r) => r.json()).then((d) => setTpls(d.error ? [] : d)); }, [waId]);
-  const pick = (t) => { setSel(t); setParams(Array(t.params).fill('')); setHFile(null); };
-  const preview = sel ? params.reduce((s, p, i) => s.replaceAll(`{{${i + 1}}}`, p || `{{${i + 1}}}`), sel.text) : '';
+  const pick = (t) => { setSel(t); setSources(Array.from({ length: t.params }, () => ({ type: 'text', value: '' }))); setHFile(null); };
+  const sv = (s) => s.type === 'name' ? '(nama kontak)' : s.type === 'phone' ? waId : (s.value || '');
+  const preview = sel ? sources.reduce((str, s, i) => str.replaceAll(`{{${i + 1}}}`, sv(s) || `{{${i + 1}}}`), sel.text) : '';
   const isImg = sel?.headerType === 'IMAGE';
   const needImg = isImg && !sel?.hasImage; // wajib upload cuma kalau belum ada default
 
@@ -24,7 +25,7 @@ export default function SendTemplate({ waId, onClose, onSent }) {
       const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result.split(',')[1]); r.readAsDataURL(hFile); });
       headerMedia = { mime: hFile.type, filename: hFile.name, data };
     }
-    const res = await post('/send-template', { wa_id: waId, name: sel.name, language: sel.language, params, preview, headerMedia });
+    const res = await post('/send-template', { wa_id: waId, name: sel.name, language: sel.language, sources, text: sel.text, headerMedia });
     const d = await res.json();
     setBusy(false);
     if (!res.ok) return setErr(d.error);
@@ -48,9 +49,16 @@ export default function SendTemplate({ waId, onClose, onSent }) {
               <label>Gambar header {sel?.hasImage ? '(opsional — default sudah tersimpan)' : ''}</label>
               <input type="file" accept="image/*" onChange={(e) => setHFile(e.target.files[0])} />
             </>)}
-            {sel && params.map((p, i) => (
-              <input key={i} placeholder={`Isi {{${i + 1}}}`} value={p}
-                onChange={(e) => setParams(params.map((x, j) => (j === i ? e.target.value : x)))} />
+            {sel && sources.map((s, i) => (
+              <div className="var-row" key={i}>
+                <select value={s.type} onChange={(e) => setSources(sources.map((x, j) => (j === i ? { ...x, type: e.target.value } : x)))}>
+                  <option value="name">Nama kontak</option>
+                  <option value="phone">Nomor kontak</option>
+                  <option value="text">Teks manual</option>
+                </select>
+                {s.type === 'text' && <input placeholder={`isi {{${i + 1}}}`} value={s.value}
+                  onChange={(e) => setSources(sources.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} />}
+              </div>
             ))}
             {sel && <div className="preview">{preview}</div>}
             {err && <div className="err">{err}</div>}

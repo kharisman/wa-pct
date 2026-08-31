@@ -397,9 +397,12 @@ app.post('/api/templates', requireCap('templates'), async (req, res) => {
 
 // Kirim template ke satu kontak (buat buka window 24 jam / re-engage)
 app.post('/api/send-template', async (req, res) => {
-  const { wa_id, name, language, params = [], preview, headerMedia } = req.body;
+  const { wa_id, name, language, params: rawParams, sources, text: tplText, headerMedia } = req.body;
   if (!wa_id || !name || !language) return res.status(400).json({ error: 'wa_id, name, language wajib' });
   try {
+    const contact = await getContact(wa_id);
+    const params = sources ? resolveParams(sources, contact) : (rawParams || []);
+    const preview = fillPreview(tplText, params, name);
     const ch = await chanOf(wa_id);
     let headerImageId;
     if (headerMedia?.data) {
@@ -424,17 +427,18 @@ app.post('/api/send-template', async (req, res) => {
 
 // Broadcast: kirim 1 template ke banyak kontak. params sama untuk semua (personalisasi nyusul).
 app.post('/api/broadcast', async (req, res) => {
-  const { name, language, params = [], wa_ids = [] } = req.body;
+  const { name, language, params: rawParams, sources, text: tplText, wa_ids = [] } = req.body;
   if (!name || !language || wa_ids.length === 0)
     return res.status(400).json({ error: 'name, language, wa_ids wajib' });
-  const preview = params.reduce((t, p, i) => t.replaceAll(`{{${i + 1}}}`, p), req.body.text || `[template: ${name}]`);
   let sent = 0; const failed = [];
   const def = await getTplMedia(name); // gambar default template (kalau ada)
   const hdrCache = new Map(); // channelId -> media id (upload sekali per channel)
-  // ponytail: sequential — aman dari rate limit dasar. Pakai queue kalau ribuan kontak.
   for (const wa_id of wa_ids) {
     try {
-      const ch = await chanOf(wa_id);
+      const contact = await getContact(wa_id);
+      const params = sources ? resolveParams(sources, contact) : (rawParams || []); // nilai per kontak (nama/nomor)
+      const preview = fillPreview(tplText, params, name);
+      const ch = contact?.channel_id ? await getChannel(contact.channel_id) : null;
       let headerImageId;
       if (def) {
         const key = ch?.id || 0;
@@ -505,4 +509,14 @@ async function pickChannel({ channel_id, wa_id } = {}) {
   if (wa_id) return await chanOf(wa_id);
   return (await listChannels())[0] || null;
 }
+// Resolusi nilai variabel template per kontak. sources: [{type:'name'|'phone'|'text', value?}]
+function resolveParams(sources, contact) {
+  return (sources || []).map((s) => {
+    if (s?.type === 'name') return contact?.name || contact?.wa_id || '';
+    if (s?.type === 'phone') return contact?.wa_id || '';
+    return s?.value ?? '';
+  });
+}
+const fillPreview = (tplText, params, name) =>
+  params.reduce((t, p, i) => t.replaceAll(`{{${i + 1}}}`, p), tplText || `[template: ${name}]`);
 app.listen(port, () => console.log(`WA CRM (Postgres/Supabase) di http://localhost:${port}`));

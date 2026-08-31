@@ -11,7 +11,7 @@ export default function BroadcastPage() {
 
   const [tpls, setTpls] = useState(null);
   const [sel, setSel] = useState(null);
-  const [params, setParams] = useState([]);
+  const [sources, setSources] = useState([]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -20,7 +20,7 @@ export default function BroadcastPage() {
     api('/channels').then(setChannels);
   }, []);
   useEffect(() => {
-    setSel(null); setParams([]);
+    setSel(null); setSources([]);
     fetch('/api/templates' + (chId ? '?channel_id=' + chId : '')).then((r) => r.json()).then((d) => setTpls(d.error ? [] : d));
   }, [chId]);
 
@@ -33,12 +33,14 @@ export default function BroadcastPage() {
     && (!fStage || c.stage === fStage));
   const finalTargets = targets.filter((c) => !excluded.has(c.wa_id));
 
-  const pick = (t) => { setSel(t); setParams(Array(t.params).fill('')); };
-  const preview = sel ? params.reduce((s, p, i) => s.replaceAll(`{{${i + 1}}}`, p || `{{${i + 1}}}`), sel.text) : '';
+  const pick = (t) => { setSel(t); setSources(Array.from({ length: t.params }, () => ({ type: 'text', value: '' }))); };
+  const sample = finalTargets[0];
+  const sampleVal = (s) => s.type === 'name' ? (sample?.name || 'Budi') : s.type === 'phone' ? (sample?.wa_id || '628xxx') : (s.value || '');
+  const preview = sel ? sources.reduce((str, s, i) => str.replaceAll(`{{${i + 1}}}`, sampleVal(s) || `{{${i + 1}}}`), sel.text) : '';
 
   const send = async () => {
     setBusy(true);
-    const res = await post('/broadcast', { name: sel.name, language: sel.language, params, text: sel.text, wa_ids: finalTargets.map((c) => c.wa_id) });
+    const res = await post('/broadcast', { name: sel.name, language: sel.language, sources, text: sel.text, wa_ids: finalTargets.map((c) => c.wa_id) });
     setResult(await res.json()); setBusy(false);
   };
 
@@ -113,10 +115,19 @@ export default function BroadcastPage() {
                   {tpls.map((t) => <option key={t.name + t.language} value={t.name}>{t.name} ({t.language})</option>)}
                 </select>
               </div>
-              {sel && params.map((p, i) => (
-                <div className="field" key={i}><label>Isi {`{{${i + 1}}}`}</label>
-                  <input value={p} onChange={(e) => setParams(params.map((x, j) => (j === i ? e.target.value : x)))} /></div>
+              {sel && sources.map((s, i) => (
+                <div className="field" key={i}><label>Variabel {`{{${i + 1}}}`}</label>
+                  <div className="var-row">
+                    <select value={s.type} onChange={(e) => setSources(sources.map((x, j) => (j === i ? { ...x, type: e.target.value } : x)))}>
+                      <option value="name">Nama kontak</option>
+                      <option value="phone">Nomor kontak</option>
+                      <option value="text">Teks manual</option>
+                    </select>
+                    {s.type === 'text' && <input placeholder="isi teks…" value={s.value} onChange={(e) => setSources(sources.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} />}
+                  </div>
+                </div>
               ))}
+              {sel && sources.length > 0 && <small className="muted">Preview memakai contoh dari penerima pertama. Tiap kontak dapat nilainya sendiri.</small>}
               {sel && (
                 <div className="wa-preview" style={{ marginTop: 8 }}>
                   <div className="wa-bubble"><div className="wa-body">{preview}</div></div>

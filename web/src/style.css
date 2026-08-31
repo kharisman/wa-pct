@@ -365,3 +365,6 @@ body { color: #1b2340; }
 .master-chip button { border: 0; background: none; color: #dc2626; cursor: pointer; font-size: 14px; padding: 0 2px; }
 @media (max-width: 760px) { .master-grid { grid-template-columns: 1fr; } }
 .card .master-chip button { background: none !important; color: #dc2626 !important; padding: 0 2px !important; font-weight: 400; }
+.var-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.var-row select { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+.var-row input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
