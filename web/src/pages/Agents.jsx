@@ -13,8 +13,15 @@ export default function Agents({ me }) {
   const [err, setErr] = useState('');
   const [auto, setAuto] = useState(false);
   const [nr, setNr] = useState({ name: '', label: '' });
+  const [divisi, setDivisi] = useState([]);
+  const [jabatan, setJabatan] = useState([]);
+  const [newDiv, setNewDiv] = useState('');
+  const [newJab, setNewJab] = useState('');
 
-  const load = () => { api('/users').then(setUsers); api('/roles').then(setRoles); };
+  const loadMasters = () => { api('/masters/division').then(setDivisi); api('/masters/jabatan').then(setJabatan); };
+  const load = () => { api('/users').then(setUsers); api('/roles').then(setRoles); loadMasters(); };
+  const addMaster = async (type, name, clear) => { if (!name.trim()) return; await post('/masters', { type, name }); clear(); loadMasters(); };
+  const delMaster = async (type, name) => { await fetch('/api/masters/' + type + '/' + encodeURIComponent(name), { method: 'DELETE' }); loadMasters(); };
   useEffect(() => { load(); api('/auto-assign').then((d) => setAuto(d.on)); }, []);
   const toggleAuto = async () => { const on = !auto; setAuto(on); await post('/auto-assign', { on }); };
 
@@ -67,8 +74,18 @@ export default function Agents({ me }) {
                     {roles.map((r) => <option key={r.name} value={r.name}>{r.label}</option>)}
                   </select>
                 )}</td>
-                <td><input className="mini-input" defaultValue={u.division || ''} placeholder="—" onBlur={(e) => e.target.value !== (u.division || '') && updUser(u.email, { division: e.target.value })} /></td>
-                <td><input className="mini-input" defaultValue={u.jabatan || ''} placeholder="—" onBlur={(e) => e.target.value !== (u.jabatan || '') && updUser(u.email, { jabatan: e.target.value })} /></td>
+                <td>
+                  <select className="mini-select" value={u.division || ''} onChange={(e) => updUser(u.email, { division: e.target.value })}>
+                    <option value="">—</option>
+                    {divisi.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <select className="mini-select" value={u.jabatan || ''} onChange={(e) => updUser(u.email, { jabatan: e.target.value })}>
+                    <option value="">—</option>
+                    {jabatan.map((j) => <option key={j} value={j}>{j}</option>)}
+                  </select>
+                </td>
                 <td>{u.email !== me.email && <button className="link" onClick={() => delUser(u.email)}>hapus</button>}</td>
               </tr>
             ))}
@@ -87,11 +104,43 @@ export default function Agents({ me }) {
           <select value={nu.role} onChange={(e) => setNu({ ...nu, role: e.target.value })}>
             {roles.map((r) => <option key={r.name} value={r.name}>{r.label}</option>)}
           </select>
-          <input placeholder="Divisi (mis. Sales)" value={nu.division} onChange={(e) => setNu({ ...nu, division: e.target.value })} />
-          <input placeholder="Jabatan (mis. Staff)" value={nu.jabatan} onChange={(e) => setNu({ ...nu, jabatan: e.target.value })} />
+          <select value={nu.division} onChange={(e) => setNu({ ...nu, division: e.target.value })}>
+            <option value="">Divisi…</option>
+            {divisi.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <select value={nu.jabatan} onChange={(e) => setNu({ ...nu, jabatan: e.target.value })}>
+            <option value="">Jabatan…</option>
+            {jabatan.map((j) => <option key={j} value={j}>{j}</option>)}
+          </select>
           <button onClick={addUser}>Tambah</button>
         </div>
         {err && <div className="err">{err}</div>}
+      </div>
+
+      {/* Master divisi & jabatan */}
+      <div className="master-grid">
+        <div className="card">
+          <h2>Master Divisi</h2>
+          <div className="master-list">
+            {divisi.map((d) => <span key={d} className="master-chip">{d}<button onClick={() => delMaster('division', d)}>×</button></span>)}
+            {divisi.length === 0 && <span className="muted">Belum ada.</span>}
+          </div>
+          <form className="addrow" onSubmit={(e) => { e.preventDefault(); addMaster('division', newDiv, () => setNewDiv('')); }}>
+            <input placeholder="mis. Sales" value={newDiv} onChange={(e) => setNewDiv(e.target.value)} />
+            <button>Tambah</button>
+          </form>
+        </div>
+        <div className="card">
+          <h2>Master Jabatan</h2>
+          <div className="master-list">
+            {jabatan.map((j) => <span key={j} className="master-chip">{j}<button onClick={() => delMaster('jabatan', j)}>×</button></span>)}
+            {jabatan.length === 0 && <span className="muted">Belum ada.</span>}
+          </div>
+          <form className="addrow" onSubmit={(e) => { e.preventDefault(); addMaster('jabatan', newJab, () => setNewJab('')); }}>
+            <input placeholder="mis. Manager" value={newJab} onChange={(e) => setNewJab(e.target.value)} />
+            <button>Tambah</button>
+          </form>
+        </div>
       </div>
 
       {/* Kelola role & hak akses */}

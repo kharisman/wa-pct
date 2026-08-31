@@ -359,3 +359,8 @@ body { color: #1b2340; }
 .mini-select, .mini-input { padding: 6px 8px; border: 1px solid #d5dbe6; border-radius: 6px; font: inherit; font-size: 13px; width: 100%; max-width: 140px; background: #fff; }
 .mini-input { max-width: 130px; }
 .addrow select { padding: 8px; border: 1px solid #ccc; border-radius: 7px; font: inherit; min-width: 120px; }
+.master-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.master-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; min-height: 24px; }
+.master-chip { background: #eef1fb; color: #152159; border-radius: 8px; padding: 3px 6px 3px 10px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.master-chip button { border: 0; background: none; color: #dc2626; cursor: pointer; font-size: 14px; padding: 0 2px; }
+@media (max-width: 760px) { .master-grid { grid-template-columns: 1fr; } }

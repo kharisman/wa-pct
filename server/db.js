@@ -175,6 +175,14 @@ export async function assignRoundRobin(waId) {
   return email;
 }
 
+// ===== Master data (divisi & jabatan) =====
+export async function initMasters() {
+  await q('CREATE TABLE IF NOT EXISTS masters (type text, name text, created_at bigint, PRIMARY KEY(type,name))');
+}
+export const listMasters = async (type) => (await q('SELECT name FROM masters WHERE type=$1 ORDER BY name', [type])).rows.map((r) => r.name);
+export const addMaster = (type, name) => q('INSERT INTO masters(type,name,created_at) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [type, name, Date.now()]);
+export const deleteMaster = (type, name) => q('DELETE FROM masters WHERE type=$1 AND name=$2', [type, name]);
+
 // ===== Roles & hak akses (custom) =====
 // perms = array capability: reports, agents, templates, quick, channels, settings, pipeline_admin. 'all' = admin penuh.
 export async function initRoles() {

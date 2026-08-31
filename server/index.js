@@ -15,7 +15,7 @@ import {
 } from './db.js';
 import { sendText, downloadMedia, uploadMedia, sendMedia, saveMediaFile, listTemplates, sendTemplate, listAllTemplates, createTemplate, uploadSampleMedia } from './wa.js';
 import { mountAuth, requireAuth, requireAdmin, requireReports, requireCap, initAuth } from './auth.js';
-import { initRoles, listRoles, upsertRole, deleteRole } from './db.js';
+import { initRoles, listRoles, upsertRole, deleteRole, initMasters, listMasters, addMaster, deleteMaster } from './db.js';
 import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 import { readMedia, storeMedia } from './store.js';
 import { aiReply } from './ai.js';
@@ -217,6 +217,17 @@ setInterval(async () => {
     }
   } catch (e) { console.error('reminder tick', e.message); }
 }, 60000);
+
+// ===== Master divisi & jabatan =====
+app.get('/api/masters/:type', async (req, res) => res.json(await listMasters(req.params.type)));
+app.post('/api/masters', requireCap('agents'), async (req, res) => {
+  const { type, name } = req.body;
+  if (!type || !name?.trim()) return res.status(400).json({ error: 'type & name wajib' });
+  await addMaster(type, name.trim()); res.json({ ok: true });
+});
+app.delete('/api/masters/:type/:name', requireCap('agents'), async (req, res) => {
+  await deleteMaster(req.params.type, decodeURIComponent(req.params.name)); res.json({ ok: true });
+});
 
 // ===== Roles & hak akses =====
 app.get('/api/roles', async (_req, res) => res.json(await listRoles())); // dipakai form agen (semua login)
@@ -467,6 +478,7 @@ await initPipelines();
 await initQuickReplies();
 await initReminders();
 await initRoles();
+await initMasters();
 await initAuth();
 await loadConfig();
 if ((await listPipelines()).length === 0) {
