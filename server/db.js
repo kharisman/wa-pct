@@ -111,11 +111,11 @@ export const listConversations = async () =>
     FROM contacts c LEFT JOIN channels ch ON ch.id=c.channel_id ORDER BY last_at DESC NULLS LAST
   `)).rows;
 
-// pagination: 50 terakhir; `before` = id pesan tertua yg sudah dimuat (buat "muat lama")
-export const listMessages = async (waId, before) => {
+// pagination: `limit` terakhir (default 10); `before` = id pesan tertua yg sudah dimuat (buat "muat lama")
+export const listMessages = async (waId, before, limit = 10) => {
   const rows = before
-    ? (await q('SELECT * FROM messages WHERE wa_id=$1 AND id<$2 ORDER BY id DESC LIMIT 50', [waId, before])).rows
-    : (await q('SELECT * FROM messages WHERE wa_id=$1 ORDER BY id DESC LIMIT 50', [waId])).rows;
+    ? (await q('SELECT * FROM messages WHERE wa_id=$1 AND id<$2 ORDER BY id DESC LIMIT $3', [waId, before, limit])).rows
+    : (await q('SELECT * FROM messages WHERE wa_id=$1 ORDER BY id DESC LIMIT $2', [waId, limit])).rows;
   return rows.reverse();
 };
 

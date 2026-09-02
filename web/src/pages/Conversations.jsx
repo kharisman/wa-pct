@@ -4,6 +4,13 @@ import Media from '../components/Media.jsx';
 import ContactPanel from '../components/ContactPanel.jsx';
 import SendTemplate from '../components/SendTemplate.jsx';
 
+const dayLabel = (ts) => {
+  const d = new Date(ts), today = new Date(), yst = new Date(Date.now() - 864e5);
+  if (d.toDateString() === today.toDateString()) return 'Hari ini';
+  if (d.toDateString() === yst.toDateString()) return 'Kemarin';
+  return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+};
+
 export default function Conversations({ me, active, setActive }) {
   const [convs, setConvs] = useState([]);
   const [users, setUsers] = useState([]);
@@ -59,7 +66,7 @@ export default function Conversations({ me, active, setActive }) {
 
   const [hasMore, setHasMore] = useState(false);
   useEffect(() => {
-    if (active) api('/messages/' + active).then((m) => { setMsgs(m); setHasMore(m.length === 50); });
+    if (active) api('/messages/' + active).then((m) => { setMsgs(m); setHasMore(m.length === 10); });
     else { setMsgs([]); setHasMore(false); }
   }, [active]);
 
@@ -67,7 +74,7 @@ export default function Conversations({ me, active, setActive }) {
     if (!msgs.length) return;
     const older = await api('/messages/' + active + '?before=' + msgs[0].id);
     setMsgs((cur) => [...older, ...cur]);
-    setHasMore(older.length === 50);
+    setHasMore(older.length === 10);
   };
 
   useEffect(() => {
@@ -207,13 +214,18 @@ export default function Conversations({ me, active, setActive }) {
           </div>
           <div className="msgs">
             {hasMore && <button type="button" className="load-older" onClick={loadOlder}>↑ Muat pesan lama</button>}
-            {msgs.map((m) => m.direction === 'note' ? (
-              <div key={m.id} className="note-msg">
+            {msgs.map((m, i) => (
+              <React.Fragment key={m.id}>
+              {(i === 0 || new Date(m.created_at).toDateString() !== new Date(msgs[i - 1].created_at).toDateString()) && (
+                <div className="date-sep">{dayLabel(m.created_at)}</div>
+              )}
+              {m.direction === 'note' ? (
+              <div className="note-msg">
                 📝 {m.body}
                 <div className="meta">catatan internal · {m.sent_by || '?'} · {new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
             ) : (
-              <div key={m.id} className={'bubble ' + m.direction}>
+              <div className={'bubble ' + m.direction}>
                 <Media m={m} />
                 {m.body}
                 <div className="meta">
@@ -222,6 +234,8 @@ export default function Conversations({ me, active, setActive }) {
                   {m.direction === 'out' && m.status ? ' · ' + m.status : ''}
                 </div>
               </div>
+            )}
+              </React.Fragment>
             ))}
             <div ref={bottom} />
           </div>

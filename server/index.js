@@ -102,7 +102,7 @@ app.post('/webhook', (req, res) => {
                 broadcast({ kind: 'message', wa_id: m.from, message: { id: hid, direction: 'out', body: txt, type: 'text', status: 'sent', sent_by: 'AI', created_at: Date.now() } });
                 broadcast({ kind: 'handover', wa_id: m.from, name: profileName }); // notif agen
               } else {
-                const hist = (await listMessages(m.from)).filter((x) => x.direction !== 'note').slice(-20)
+                const hist = (await listMessages(m.from, null, 50)).filter((x) => x.direction !== 'note').slice(-20)
                   .map((x) => ({ role: x.direction === 'in' ? 'user' : 'assistant', content: x.body || '' }));
                 const reply = await aiReply(await aiSystem(), hist);
                 if (reply) {
@@ -265,7 +265,7 @@ app.post('/api/ai-suggest', async (req, res) => {
   const { wa_id } = req.body;
   if (!wa_id) return res.status(400).json({ error: 'wa_id wajib' });
   try {
-    const msgs = (await listMessages(wa_id)).filter((m) => m.direction !== 'note').slice(-20); // memori per percakapan
+    const msgs = (await listMessages(wa_id, null, 50)).filter((m) => m.direction !== 'note').slice(-20); // memori per percakapan
     const history = msgs.map((m) => ({ role: m.direction === 'in' ? 'user' : 'assistant', content: m.body || '' }));
     res.json({ text: await aiReply(await aiSystem(), history) });
   } catch (e) { res.status(502).json({ error: e.message }); }
