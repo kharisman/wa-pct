@@ -25,6 +25,7 @@ export default function Conversations({ me, active, setActive }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const bottom = useRef(null);
+  const msgsEl = useRef(null);
   const fileRef = useRef(null);
 
   const loadConvs = () => api('/conversations').then(setConvs);
@@ -72,9 +73,12 @@ export default function Conversations({ me, active, setActive }) {
 
   const loadOlder = async () => {
     if (!msgs.length) return;
+    const el = msgsEl.current;
+    const prevH = el?.scrollHeight ?? 0; // jaga posisi baca: tinggi sebelum pesan lama disisipkan
     const older = await api('/messages/' + active + '?before=' + msgs[0].id);
     setMsgs((cur) => [...older, ...cur]);
     setHasMore(older.length === 10);
+    if (el) requestAnimationFrame(() => { el.scrollTop += el.scrollHeight - prevH; });
   };
 
   useEffect(() => {
@@ -212,7 +216,7 @@ export default function Conversations({ me, active, setActive }) {
               );
             })()}
           </div>
-          <div className="msgs">
+          <div className="msgs" ref={msgsEl}>
             {hasMore && <button type="button" className="load-older" onClick={loadOlder}>↑ Muat pesan lama</button>}
             {msgs.map((m, i) => (
               <React.Fragment key={m.id}>
