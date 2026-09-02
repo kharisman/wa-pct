@@ -12,7 +12,7 @@ export default function Conversations({ me, active, setActive }) {
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [quick, setQuick] = useState([]);
-  const [showQuick, setShowQuick] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   useEffect(() => { api('/quick-replies').then(setQuick); }, []);
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
@@ -227,23 +227,24 @@ export default function Conversations({ me, active, setActive }) {
           </div>
           <form className="composer" onSubmit={send}>
             <input type="file" ref={fileRef} style={{ display: 'none' }} onChange={(e) => sendFile(e.target.files[0])} />
-            <button type="button" className="attach" title="Lampirkan file" disabled={sending} onClick={() => fileRef.current?.click()}>📎</button>
-            <button type="button" className="attach" title="Kirim template" onClick={() => setShowTpl(true)}>📋</button>
-            <button type="button" className="attach note-btn" title="Catatan internal (tidak dikirim ke pelanggan)" onClick={() => setShowNote(true)}>📝</button>
             <div className="quick-wrap">
-              <button type="button" className="attach" title="Balasan cepat" onClick={() => setShowQuick((s) => !s)}>⚡</button>
-              {showQuick && (
+              <button type="button" className="attach" title="Aksi" onClick={() => setShowActions((s) => !s)}>{showActions ? '✕' : '＋'}</button>
+              {showActions && (
                 <div className="quick-pop">
+                  <div className="quick-item act" onClick={() => { setShowActions(false); fileRef.current?.click(); }}>📎 Lampirkan file</div>
+                  <div className="quick-item act" onClick={() => { setShowActions(false); setShowTpl(true); }}>📋 Kirim template</div>
+                  <div className="quick-item act" onClick={() => { setShowActions(false); setShowNote(true); }}>📝 Catatan internal</div>
+                  <div className="quick-item act" onClick={() => { if (!aiBusy) { setShowActions(false); aiSuggest(); } }}>🤖 {aiBusy ? 'Menyusun…' : 'Balas dengan AI'}</div>
+                  <div className="act-sep">Balasan cepat</div>
                   {quick.length === 0 && <div className="quick-empty">Belum ada balasan cepat.</div>}
                   {quick.map((q) => (
-                    <div key={q.id} className="quick-item" onClick={() => { setText((t) => (t ? t + ' ' : '') + q.body); setShowQuick(false); }}>
+                    <div key={q.id} className="quick-item" onClick={() => { setText((t) => (t ? t + ' ' : '') + q.body); setShowActions(false); }}>
                       <b>{q.title}</b><span>{q.body}</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-            <button type="button" className="attach ai-btn" title="Balas dengan AI" disabled={aiBusy} onClick={aiSuggest}>{aiBusy ? '…' : '🤖'}</button>
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ketik balasan…" />
             <button disabled={sending}>Kirim</button>
           </form>
