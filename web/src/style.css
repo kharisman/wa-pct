@@ -229,7 +229,7 @@ body { color: #1b2340; }
   .app.has-active .list { display: none; }
   .app.has-active .thread { display: flex; height: 100%; }
   /* composer nempel di bawah + aman dari home-bar iOS */
-  .thread .composer { position: sticky; bottom: 0; background: #fff; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .thread .composer { position: sticky; bottom: 0; background: #fff; }
   .back-btn { display: inline-block; }
 
   .page { padding: 60px 14px 14px; }
