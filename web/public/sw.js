@@ -1,10 +1,6 @@
-const CACHE = 'wa-crm-shell-v1';
-const SHELL = ['/', '/icon.svg', '/manifest.webmanifest'];
+const CACHE = 'wa-crm-shell-v2';
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
-  self.skipWaiting();
-});
+self.addEventListener('install', (e) => { self.skipWaiting(); });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -13,13 +9,26 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// ponytail: cache-first for GET only; API/media always hit network
+// ponytail: HTML/navigasi selalu network-first (biar gak nyangkut ke index.html lama
+// yang nunjuk ke file JS/CSS ber-hash yang udah gak ada). Asset ber-hash (/assets/*)
+// cache-first karena immutable per build.
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.pathname.startsWith('/api') || url.pathname.startsWith('/media')) return;
-  e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
-  );
+
+  if (e.request.mode === 'navigate') {
+    e.respondWith(fetch(e.request).catch(() => caches.match('/')));
+    return;
+  }
+  if (url.pathname.startsWith('/assets/')) {
+    e.respondWith(
+      caches.match(e.request).then((cached) => cached || fetch(e.request).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        return res;
+      }))
+    );
+  }
 });
 
 self.addEventListener('push', (e) => {
