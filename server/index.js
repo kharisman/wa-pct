@@ -20,6 +20,7 @@ import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 import { readMedia, storeMedia } from './store.js';
 import { aiReply } from './ai.js';
 import { initPush, getVapidPublic, sendPushToAll, savePushSub, deletePushSub } from './push.js';
+import { sendTelegram } from './telegram.js';
 
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
@@ -91,6 +92,8 @@ app.post('/webhook', (req, res) => {
           const id = await insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl, channelId });
           broadcast({ kind: 'message', wa_id: m.from, name: profileName, message: { id, direction: 'in', body, type: m.type, media_url: mediaUrl, created_at: Date.now() } });
           sendPushToAll({ title: '💬 ' + (profileName || m.from), body, wa_id: m.from }).catch((e) => console.error('push gagal', e.message));
+          const agent = before?.assignee || 'belum ada agen';
+          sendTelegram(`💬 Pesan masuk dari ${profileName || m.from} (${m.from})\nAgen: ${agent}\n\n${body}`);
           // AI otomatis balas kalau nomor ini AI-nya aktif (cuma pesan teks) & belum diambil alih agen
           if (ch?.ai_enabled && m.type === 'text' && !before?.ai_off) {
             const wantsHuman = /\b(admin|agen|manusia|customer service|operator|petugas|cs)\b|orang\s*(asli|nya)|bicara\s+langsung|sambungk?an|hubungk?an ke|ke\s+admin|dengan\s+admin/i.test(body);

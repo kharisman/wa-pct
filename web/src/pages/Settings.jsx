@@ -53,6 +53,8 @@ export default function Settings() {
               {F('WA_APP_ID', 'App ID', 'buat upload header media template')}
               {F('WA_APP_SECRET', 'App Secret', 'dari Meta App › Settings › Basic. Diisi = webhook diverifikasi tanda tangan (aman).')}
               {F('WA_VERIFY_TOKEN', 'Verify Token (webhook)')}
+              {F('TELEGRAM_BOT_TOKEN', 'Telegram Bot Token', 'dari @BotFather. Diisi = notif pesan masuk dikirim ke grup Telegram.')}
+              {F('TELEGRAM_CHAT_ID', 'Telegram Chat ID', 'ID grup Telegram tujuan notif.')}
               <div className="row"><button disabled={Object.keys(form).length === 0}>Simpan</button>{saved && <span className="saved">✓ tersimpan</span>}</div>
             </form>
           )}

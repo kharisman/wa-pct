@@ -1,8 +1,8 @@
 import { q } from './db.js';
 
 // Key koneksi WA yang bisa diubah dari UI (bukan lagi dari .env)
-export const KEYS = ['WA_TOKEN', 'WA_PHONE_ID', 'WA_WABA_ID', 'WA_VERIFY_TOKEN', 'WA_APP_ID', 'WA_APP_SECRET', 'DEEPSEEK_KEY'];
-const SECRET_KEYS = ['WA_TOKEN', 'WA_APP_SECRET', 'DEEPSEEK_KEY'];
+export const KEYS = ['WA_TOKEN', 'WA_PHONE_ID', 'WA_WABA_ID', 'WA_VERIFY_TOKEN', 'WA_APP_ID', 'WA_APP_SECRET', 'DEEPSEEK_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'];
+const SECRET_KEYS = ['WA_TOKEN', 'WA_APP_SECRET', 'DEEPSEEK_KEY', 'TELEGRAM_BOT_TOKEN'];
 const cache = new Map();
 
 export async function loadConfig() {
