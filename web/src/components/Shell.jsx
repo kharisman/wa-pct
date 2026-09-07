@@ -10,6 +10,15 @@ import QuickReplies from '../pages/QuickReplies.jsx';
 import Reports from '../pages/Reports.jsx';
 import Channels from '../pages/Channels.jsx';
 import Settings from '../pages/Settings.jsx';
+import { api, post } from '../api.js';
+
+// VAPID public key: base64url -> Uint8Array (format yang diminta pushManager.subscribe)
+function urlBase64ToUint8Array(base64) {
+  const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
 
 export default function Shell({ me, onLogout }) {
   const [nav, setNav] = useState('conversations');
@@ -48,7 +57,21 @@ export default function Shell({ me, onLogout }) {
     return () => es.close();
   }, []);
 
-  const askNotif = async () => setNotif(await Notification.requestPermission());
+  const askNotif = async () => {
+    const perm = await Notification.requestPermission();
+    setNotif(perm);
+    if (perm === 'granted' && 'serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const { key } = await api('/push/vapid-key');
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+        }
+        await post('/push/subscribe', sub.toJSON());
+      } catch (e) { console.error('push subscribe gagal', e); }
+    }
+  };
 
   const can = (c) => me.perms?.includes('all') || me.perms?.includes(c);
   const items = [

@@ -164,6 +164,22 @@ export const deleteReminder = (id) => q('DELETE FROM reminders WHERE id=$1', [id
 export const getSetting = async (k) => (await q('SELECT value FROM settings WHERE key=$1', [k])).rows[0]?.value;
 export const setSetting = (k, v) => q('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value', [k, String(v)]);
 
+// ===== Push subscription (Web Push, per staff) =====
+export async function initPush() {
+  await q(`CREATE TABLE IF NOT EXISTS push_subs (
+    endpoint   text PRIMARY KEY,
+    email      text NOT NULL,
+    keys       text NOT NULL,
+    created_at bigint NOT NULL
+  )`);
+}
+export const savePushSub = (email, sub) =>
+  q('INSERT INTO push_subs(endpoint,email,keys,created_at) VALUES($1,$2,$3,$4) ON CONFLICT(endpoint) DO UPDATE SET keys=EXCLUDED.keys',
+    [sub.endpoint, email, JSON.stringify(sub.keys), Date.now()]);
+export const deletePushSub = (endpoint) => q('DELETE FROM push_subs WHERE endpoint=$1', [endpoint]);
+export const listPushSubs = async () =>
+  (await q('SELECT endpoint, email, keys FROM push_subs')).rows.map((r) => ({ endpoint: r.endpoint, email: r.email, keys: JSON.parse(r.keys) }));
+
 // Auto-assign round-robin ke agen (kalau kontak belum ada yang pegang)
 export async function assignRoundRobin(waId) {
   const agents = (await q('SELECT email FROM users ORDER BY created_at')).rows.map((r) => r.email);
