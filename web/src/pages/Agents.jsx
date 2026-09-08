@@ -33,6 +33,13 @@ export default function Agents({ me }) {
     setNu({ name: '', email: '', password: '', role: 'agen', division: '', jabatan: '' }); setErr(''); load();
   };
   const delUser = async (email) => { if (confirm('Hapus ' + email + '?')) { await fetch('/api/users/' + encodeURIComponent(email), { method: 'DELETE' }); load(); } };
+  const resetPw = async (email) => {
+    const password = prompt('Password baru untuk ' + email + ' (min 6 karakter):');
+    if (!password) return;
+    if (password.length < 6) return alert('Password minimal 6 karakter');
+    const res = await patch('/users/' + encodeURIComponent(email), { password });
+    alert(res.ok ? 'Password ' + email + ' berhasil direset. User perlu login ulang.' : 'Gagal reset password');
+  };
   const updUser = async (email, body) => { await patch('/users/' + encodeURIComponent(email), body); load(); };
 
   const roleHas = (r, cap) => r.perms.includes('all') || r.perms.includes(cap);
@@ -80,7 +87,10 @@ export default function Agents({ me }) {
                     <option value="">—</option>{divisi.map((d) => <option key={d} value={d}>{d}</option>)}</select></td>
                   <td><select className="mini-select" value={u.jabatan || ''} onChange={(e) => updUser(u.email, { jabatan: e.target.value })}>
                     <option value="">—</option>{jabatan.map((j) => <option key={j} value={j}>{j}</option>)}</select></td>
-                  <td>{u.email !== me.email && <button className="link" onClick={() => delUser(u.email)}>hapus</button>}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button className="link" onClick={() => resetPw(u.email)}>reset pw</button>
+                    {u.email !== me.email && <> · <button className="link" onClick={() => delUser(u.email)}>hapus</button></>}
+                  </td>
                 </tr>
               ))}
             </tbody>

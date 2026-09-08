@@ -145,7 +145,14 @@ export function mountAuth(app) {
     catch { res.status(409).json({ error: 'email sudah dipakai' }); }
   });
   app.patch('/api/users/:email', requireAuth, requireCap('agents'), async (req, res) => {
-    await updateUser(req.params.email, req.body); res.json({ ok: true });
+    await updateUser(req.params.email, req.body);
+    if (req.body.password) { // admin reset password agen
+      const err = minLen(6, 'Password')(req.body.password);
+      if (err) return res.status(400).json({ error: err });
+      await q('UPDATE users SET pass=$1 WHERE email=$2', [hash(req.body.password), req.params.email.toLowerCase()]);
+      await q('DELETE FROM sessions WHERE email=$1', [req.params.email.toLowerCase()]); // paksa login ulang
+    }
+    res.json({ ok: true });
   });
   app.delete('/api/users/:email', requireAuth, requireCap('agents'), async (req, res) => {
     if (req.params.email === req.user.email) return res.status(400).json({ error: 'tak bisa hapus diri sendiri' });
