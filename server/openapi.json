@@ -3,10 +3,10 @@
   "info": {
     "title": "PalComTech CRM API",
     "version": "1.0.0",
-    "description": "API WhatsApp CRM. Autentikasi pakai API key (Pengaturan → API Key). Kirim header `X-API-Key` atau `Authorization: Bearer <key>` di setiap request."
+    "description": "API WhatsApp CRM.\n\n**Dua cara autentikasi:**\n1. **Login user** — POST `/login` (email+password) → dapat `token`. Kirim di header `Authorization: Bearer <token>` untuk request berikutnya. Akses mengikuti role user.\n2. **API key statis** — buat di Pengaturan → API Key. Kirim header `X-API-Key: <key>` (akses penuh).\n\nTanpa salah satu di atas, semua endpoint balas 401."
   },
   "servers": [{ "url": "/api" }],
-  "security": [{ "ApiKeyAuth": [] }, { "BearerAuth": [] }],
+  "security": [{ "BearerAuth": [] }, { "ApiKeyAuth": [] }],
   "components": {
     "securitySchemes": {
       "ApiKeyAuth": { "type": "apiKey", "in": "header", "name": "X-API-Key" },
@@ -14,6 +14,23 @@
     }
   },
   "paths": {
+    "/login": {
+      "post": {
+        "summary": "Login (dapat token)",
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["email", "password"],
+          "properties": { "email": { "type": "string", "example": "admin@x.com" }, "password": { "type": "string", "example": "rahasia" } }
+        } } } },
+        "responses": { "200": { "description": "{ email, name, token }" }, "401": { "description": "Email atau password salah" } }
+      }
+    },
+    "/logout": {
+      "post": { "summary": "Logout (hapus token)", "responses": { "200": { "description": "OK" } } }
+    },
+    "/me": {
+      "get": { "summary": "Profil user dari token aktif", "responses": { "200": { "description": "OK" }, "401": { "description": "unauthorized" } } }
+    },
     "/conversations": {
       "get": {
         "summary": "Daftar percakapan",

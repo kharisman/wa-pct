@@ -78,15 +78,15 @@ const parseCookie = (h = '') => Object.fromEntries(h.split(';').map((c) => c.tri
 
 export async function requireAuth(req, res, next) {
   try {
-    // API key (header X-API-Key atau Authorization: Bearer <key>) → akses penuh
-    const apiKey = req.headers['x-api-key'] || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    if (apiKey) {
-      const k = (await q('SELECT label FROM api_keys WHERE key=$1', [apiKey])).rows[0];
-      if (!k) return res.status(401).json({ error: 'invalid api key' });
-      req.user = { email: 'apikey', name: k.label, is_admin: 1, perms: ['all'] };
-      return next();
+    // Token dari header (X-API-Key / Authorization: Bearer) atau cookie sesi
+    const headerTok = req.headers['x-api-key'] || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (headerTok) {
+      // 1) API key statis → akses penuh
+      const k = (await q('SELECT label FROM api_keys WHERE key=$1', [headerTok])).rows[0];
+      if (k) { req.user = { email: 'apikey', name: k.label, is_admin: 1, perms: ['all'] }; return next(); }
     }
-    const token = parseCookie(req.headers.cookie).sid;
+    // 2) Token sesi hasil /api/login (via header Bearer atau cookie) → akses sesuai role user
+    const token = headerTok || parseCookie(req.headers.cookie).sid;
     const s = token && (await q('SELECT email FROM sessions WHERE token=$1', [token])).rows[0];
     if (!s) return res.status(401).json({ error: 'unauthorized' });
     const u = (await q('SELECT email, name, is_admin, role, division, jabatan FROM users WHERE email=$1', [s.email])).rows[0];
@@ -115,10 +115,11 @@ export function mountAuth(app) {
     await q('INSERT INTO sessions(token,email,name,created_at) VALUES($1,$2,$3,$4)',
       [token, user.email, user.name, Date.now()]);
     res.set('Set-Cookie', `sid=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`);
-    res.json(user);
+    res.json({ ...user, token }); // token buat klien non-browser (Android): kirim sbg `Authorization: Bearer <token>`
   });
   app.post('/api/logout', async (req, res) => {
-    await q('DELETE FROM sessions WHERE token=$1', [parseCookie(req.headers.cookie).sid || '']);
+    const tok = req.headers['x-api-key'] || (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || parseCookie(req.headers.cookie).sid || '';
+    await q('DELETE FROM sessions WHERE token=$1', [tok]);
     res.set('Set-Cookie', 'sid=; HttpOnly; Path=/; Max-Age=0').json({ ok: true });
   });
   app.get('/api/me', requireAuth, (req, res) => res.json(req.user));

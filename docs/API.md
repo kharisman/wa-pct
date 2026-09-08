@@ -16,16 +16,28 @@ Key muncul di tabel dan bisa disalin. Buat sebanyak yang perlu; hapus kapan saja
 > Key = **akses penuh** (setara admin). Simpan rahasia; jangan taruh di kode klien
 > yang bisa dibongkar. Kalau bocor, hapus dan buat baru.
 
-## 2. Kirim key di setiap request
+## 2. Dua cara autentikasi
 
-Pilih salah satu header:
+Tanpa salah satu di bawah, semua endpoint balas **401**.
 
+**A. Login user (disarankan untuk app yang tiap orang punya akun)**
+POST `/login` dengan email+password → dapat `token`. Pakai token itu di header
+request berikutnya. Akses mengikuti role user.
+
+```bash
+# 1) login
+curl -X POST https://crm.palcomtech.ac.id/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@x.com","password":"rahasia"}'
+# -> { "email": "...", "name": "...", "token": "abcd1234..." }
+
+# 2) pakai token
+curl -H "Authorization: Bearer abcd1234..." https://crm.palcomtech.ac.id/api/conversations
+```
+
+**B. API key statis (akses penuh, buat integrasi/mesin)**
 ```
 X-API-Key: wak_xxxxxxxxxxxxxxxxxxxxxxxx
-```
-atau
-```
-Authorization: Bearer wak_xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 Base URL: `https://crm.palcomtech.ac.id/api`
@@ -69,6 +81,9 @@ client.newCall(post).execute().use { println(it.body?.string()) }
 
 | Method | Path | Keterangan |
 |--------|------|-----------|
+| POST | `/login` | Login → `{ token }`. Tanpa auth |
+| POST | `/logout` | Hapus token aktif |
+| GET  | `/me` | Profil user dari token |
 | GET  | `/conversations` | Daftar chat + pesan terakhir |
 | GET  | `/messages/:waId` | Pesan 1 chat (10 terbaru). `?before=<id>` untuk muat lama |
 | POST | `/send` | Kirim teks. Body: `{ wa_id, body }` |
