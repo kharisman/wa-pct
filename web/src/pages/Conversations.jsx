@@ -93,6 +93,8 @@ export default function Conversations({ me, active, setActive }) {
         });
       } else if (ev.kind === 'status') {
         setMsgs((m) => m.map((x) => (x.wa_msg_id === ev.wa_msg_id ? { ...x, status: ev.status } : x)));
+      } else if (ev.kind === 'contact' || ev.kind === 'handover') {
+        loadConvs(); // ai_off / take-over berubah → segarkan status + kunci kotak
       }
     };
     return () => es.close();
