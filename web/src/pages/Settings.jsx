@@ -129,6 +129,7 @@ export default function Settings() {
           <h2>API Key</h2>
           <p className="muted">Buat key untuk akses API dari luar (mis. app Android). Kirim di header tiap request:<br />
             <code>X-API-Key: &lt;key&gt;</code> atau <code>Authorization: Bearer &lt;key&gt;</code>. Key = akses penuh, jaga kerahasiaannya.</p>
+          <p><a href="/docs" target="_blank" rel="noreferrer">📖 Buka dokumentasi API (Scalar) ↗</a></p>
           <form onSubmit={addKey} className="row" style={{ gap: 8, marginBottom: 14 }}>
             <input value={keyLabel} placeholder="Nama key (mis. App Android)" onChange={(e) => setKeyLabel(e.target.value)} style={{ flex: 1, padding: 8, border: '1px solid #ccc', borderRadius: 6 }} />
             <button>＋ Buat key</button>
