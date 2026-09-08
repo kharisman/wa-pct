@@ -88,17 +88,19 @@ export default function Agents({ me }) {
         </div>
         <div className="card">
           <h2>Tambah agen</h2>
-          <div className="addrow">
-            <input placeholder="Nama" value={nu.name} onChange={(e) => setNu({ ...nu, name: e.target.value })} />
-            <input placeholder="Email" value={nu.email} onChange={(e) => setNu({ ...nu, email: e.target.value })} />
-            <input placeholder="Password" type="password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} />
-          </div>
-          <div className="addrow" style={{ marginTop: 8 }}>
-            <select value={nu.role} onChange={(e) => setNu({ ...nu, role: e.target.value })}>{roles.map((r) => <option key={r.name} value={r.name}>{r.label}</option>)}</select>
-            <select value={nu.division} onChange={(e) => setNu({ ...nu, division: e.target.value })}><option value="">Divisi…</option>{divisi.map((d) => <option key={d} value={d}>{d}</option>)}</select>
-            <select value={nu.jabatan} onChange={(e) => setNu({ ...nu, jabatan: e.target.value })}><option value="">Jabatan…</option>{jabatan.map((j) => <option key={j} value={j}>{j}</option>)}</select>
-            <button onClick={addUser}>Tambah</button>
-          </div>
+          <form onSubmit={addUser}>
+            <div className="addrow">
+              <input placeholder="Nama" required value={nu.name} onChange={(e) => setNu({ ...nu, name: e.target.value })} />
+              <input placeholder="Email" type="email" required value={nu.email} onChange={(e) => setNu({ ...nu, email: e.target.value })} />
+              <input placeholder="Password" type="password" required minLength={6} value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} />
+            </div>
+            <div className="addrow" style={{ marginTop: 8 }}>
+              <select value={nu.role} onChange={(e) => setNu({ ...nu, role: e.target.value })}>{roles.map((r) => <option key={r.name} value={r.name}>{r.label}</option>)}</select>
+              <select value={nu.division} onChange={(e) => setNu({ ...nu, division: e.target.value })}><option value="">Divisi…</option>{divisi.map((d) => <option key={d} value={d}>{d}</option>)}</select>
+              <select value={nu.jabatan} onChange={(e) => setNu({ ...nu, jabatan: e.target.value })}><option value="">Jabatan…</option>{jabatan.map((j) => <option key={j} value={j}>{j}</option>)}</select>
+              <button>Tambah</button>
+            </div>
+          </form>
           {err && <div className="err">{err}</div>}
         </div>
       </>}
@@ -124,7 +126,7 @@ export default function Agents({ me }) {
             </table>
           </div>
           <form onSubmit={addRole} className="addrow" style={{ padding: 14 }}>
-            <input placeholder="Nama role (mis. sales)" value={nr.name} onChange={(e) => setNr({ ...nr, name: e.target.value })} />
+            <input placeholder="Nama role (mis. sales)" required value={nr.name} onChange={(e) => setNr({ ...nr, name: e.target.value })} />
             <input placeholder="Label (mis. Tim Sales)" value={nr.label} onChange={(e) => setNr({ ...nr, label: e.target.value })} />
             <button>Tambah role</button>
           </form>
@@ -141,7 +143,7 @@ export default function Agents({ me }) {
               {divisi.length === 0 && <span className="muted">Belum ada.</span>}
             </div>
             <form className="addrow" onSubmit={(e) => { e.preventDefault(); addMaster('division', newDiv, () => setNewDiv('')); }}>
-              <input placeholder="mis. Sales" value={newDiv} onChange={(e) => setNewDiv(e.target.value)} /><button>Tambah</button>
+              <input placeholder="mis. Sales" required value={newDiv} onChange={(e) => setNewDiv(e.target.value)} /><button>Tambah</button>
             </form>
           </div>
           <div className="card">
@@ -151,7 +153,7 @@ export default function Agents({ me }) {
               {jabatan.length === 0 && <span className="muted">Belum ada.</span>}
             </div>
             <form className="addrow" onSubmit={(e) => { e.preventDefault(); addMaster('jabatan', newJab, () => setNewJab('')); }}>
-              <input placeholder="mis. Manager" value={newJab} onChange={(e) => setNewJab(e.target.value)} /><button>Tambah</button>
+              <input placeholder="mis. Manager" required value={newJab} onChange={(e) => setNewJab(e.target.value)} /><button>Tambah</button>
             </form>
           </div>
         </div>

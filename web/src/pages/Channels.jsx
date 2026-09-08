@@ -51,9 +51,9 @@ export default function Channels() {
         <h2>Tambah nomor</h2>
         <p className="muted">Nomor harus sudah terdaftar di WhatsApp Manager & app ter-subscribe ke WABA-nya. Token dikosongkan = pakai token global (Setting).</p>
         <form onSubmit={add}>
-          <div className="field"><label>Label</label><input value={f.label} placeholder="CS Sales" onChange={(e) => setF({ ...f, label: e.target.value })} /></div>
-          <div className="field"><label>Phone Number ID</label><input value={f.phone_id} onChange={(e) => setF({ ...f, phone_id: e.target.value })} /></div>
-          <div className="field"><label>WhatsApp Business Account ID</label><input value={f.waba_id} onChange={(e) => setF({ ...f, waba_id: e.target.value })} /></div>
+          <div className="field"><label>Label</label><input required value={f.label} placeholder="CS Sales" onChange={(e) => setF({ ...f, label: e.target.value })} /></div>
+          <div className="field"><label>Phone Number ID</label><input required inputMode="numeric" value={f.phone_id} onChange={(e) => setF({ ...f, phone_id: e.target.value })} /></div>
+          <div className="field"><label>WhatsApp Business Account ID</label><input required inputMode="numeric" value={f.waba_id} onChange={(e) => setF({ ...f, waba_id: e.target.value })} /></div>
           <div className="field"><label>Access Token (opsional)</label><input value={f.token} placeholder="kosong = token global" onChange={(e) => setF({ ...f, token: e.target.value })} /></div>
           <div className="row"><button>Tambah nomor</button>{err && <span className="err">{err}</span>}</div>
         </form>

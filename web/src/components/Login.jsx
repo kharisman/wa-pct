@@ -18,8 +18,8 @@ export default function Login({ onLogin }) {
     <div className="login">
       <form onSubmit={submit}>
         <h1>💬 WA CRM</h1>
-        <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
-        <input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input placeholder="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+        <input placeholder="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         <button>Masuk</button>
         {err && <div className="err">{err}</div>}
       </form>

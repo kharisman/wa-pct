@@ -1,5 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { q, getRolePerms } from './db.js';
+import { validate, required, email as emailRule, minLen } from './validate.js';
 
 export async function initAuth() {
   await q(`
@@ -109,6 +110,8 @@ export const requireReports = requireCap('reports');
 
 export function mountAuth(app) {
   app.post('/api/login', async (req, res) => {
+    const err = validate(req.body, { email: [required('Email'), emailRule()], password: [required('Password')] });
+    if (err) return res.status(400).json({ error: err });
     const user = await verify(req.body.email || '', req.body.password || '');
     if (!user) return res.status(401).json({ error: 'Email atau password salah' });
     const token = randomBytes(24).toString('hex');
@@ -127,7 +130,8 @@ export function mountAuth(app) {
 
   app.post('/api/users', requireAuth, requireCap('agents'), async (req, res) => {
     const { email, name, password, role, division, jabatan } = req.body;
-    if (!email || !name || !password) return res.status(400).json({ error: 'email, nama, password wajib' });
+    const err = validate(req.body, { name: [required('Nama')], email: [required('Email'), emailRule()], password: [required('Password'), minLen(6, 'Password')] });
+    if (err) return res.status(400).json({ error: err });
     try { await createUser(email, name, password, { role, division, jabatan }); res.json({ ok: true }); }
     catch { res.status(409).json({ error: 'email sudah dipakai' }); }
   });

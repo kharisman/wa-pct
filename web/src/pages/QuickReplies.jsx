@@ -32,8 +32,8 @@ export default function QuickReplies() {
           {rows.length === 0 && <p className="muted">Belum ada.</p>}
         </div>
         <form onSubmit={add}>
-          <div className="field"><label>Judul</label><input value={f.title} placeholder="Salam pembuka" onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
-          <div className="field"><label>Isi</label><textarea rows={2} value={f.body} placeholder="Halo, terima kasih sudah menghubungi PalComTech 🙏" onChange={(e) => setF({ ...f, body: e.target.value })} /></div>
+          <div className="field"><label>Judul</label><input required value={f.title} placeholder="Salam pembuka" onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
+          <div className="field"><label>Isi</label><textarea rows={2} required value={f.body} placeholder="Halo, terima kasih sudah menghubungi PalComTech 🙏" onChange={(e) => setF({ ...f, body: e.target.value })} /></div>
           <div className="row"><button>Tambah</button>{err && <span className="err">{err}</span>}</div>
         </form>
       </div>
