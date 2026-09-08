@@ -68,6 +68,16 @@ export default function Shell({ me, onLogout }) {
     return () => es.close();
   }, []);
 
+  // Registrasi token FCM app Android (native inject token lewat AndroidApp.fcmToken())
+  useEffect(() => {
+    window.__registerFcm = (token) => { if (token) post('/fcm/register', { token }); };
+    try {
+      const t = window.AndroidApp && window.AndroidApp.fcmToken && window.AndroidApp.fcmToken();
+      if (t) post('/fcm/register', { token: t });
+    } catch { /* bukan app Android */ }
+    return () => { delete window.__registerFcm; };
+  }, []);
+
   const askNotif = async () => {
     const perm = await Notification.requestPermission();
     setNotif(perm);

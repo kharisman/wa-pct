@@ -12,6 +12,15 @@ jobs:
             - gradle-v1-{{ checksum "android/app/build.gradle" }}
             - gradle-v1-
       - run:
+          name: Tulis google-services.json (dari env GOOGLE_SERVICES_JSON_BASE64)
+          command: |
+            if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+              echo "ERROR: set env var GOOGLE_SERVICES_JSON_BASE64 di CircleCI Project Settings."
+              echo "Isi: base64 dari file google-services.json Firebase (base64 -w0 google-services.json)."
+              exit 1
+            fi
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
+      - run:
           name: Build debug APK
           command: cd android && ./gradlew assembleDebug --no-daemon --stacktrace
       - run:

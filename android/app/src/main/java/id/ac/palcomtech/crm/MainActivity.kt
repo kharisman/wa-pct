@@ -2,10 +2,14 @@ package id.ac.palcomtech.crm
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -14,11 +18,23 @@ import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    // Jembatan buat web ambil token FCM lalu daftarkan ke server (pakai sesi login web)
+    inner class Bridge {
+        @JavascriptInterface
+        fun fcmToken(): String = getSharedPreferences("fcm", Context.MODE_PRIVATE).getString("token", "") ?: ""
+    }
+
+    private val askNotifPerm = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* diizinkan / tidak, tak apa */ }
 
     // Buka file picker untuk upload (lampirkan gambar/dokumen dari web)
     private val fileChooser = registerForActivityResult(
@@ -37,6 +53,17 @@ class MainActivity : AppCompatActivity() {
 
         web = WebView(this)
         setContentView(web)
+        web.addJavascriptInterface(Bridge(), "AndroidApp")
+
+        ensureChannel(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            askNotifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        // Simpan token FCM terbaru; web akan menariknya via AndroidApp.fcmToken() saat login
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { t ->
+            getSharedPreferences("fcm", Context.MODE_PRIVATE).edit().putString("token", t).apply()
+        }
 
         web.settings.apply {
             javaScriptEnabled = true

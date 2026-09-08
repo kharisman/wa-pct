@@ -20,6 +20,7 @@ import { loadConfig, cfg, setConfig, getConfigView } from './config.js';
 import { readMedia, storeMedia } from './store.js';
 import { aiReply } from './ai.js';
 import { initPush, getVapidPublic, sendPushToAll, savePushSub, deletePushSub } from './push.js';
+import { initFcm, saveFcmToken, deleteFcmToken, sendFcmToAll } from './fcm.js';
 import { sendTelegram } from './telegram.js';
 
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
@@ -92,6 +93,7 @@ app.post('/webhook', (req, res) => {
           const id = await insertMessage({ waId: m.from, direction: 'in', type: m.type, body, waMsgId: m.id, mediaUrl, channelId });
           broadcast({ kind: 'message', wa_id: m.from, name: profileName, message: { id, direction: 'in', body, type: m.type, media_url: mediaUrl, created_at: Date.now() } });
           sendPushToAll({ title: '💬 ' + (profileName || m.from), body, wa_id: m.from }).catch((e) => console.error('push gagal', e.message));
+          sendFcmToAll({ title: '💬 ' + (profileName || m.from), body, wa_id: m.from }).catch((e) => console.error('fcm gagal', e.message));
           const agent = before?.assignee || 'belum ada agen';
           sendTelegram(`💬 Pesan masuk dari ${profileName || m.from} (${m.from})\nAgen: ${agent}\n\n${body}`);
           // AI otomatis balas kalau nomor ini AI-nya aktif (cuma pesan teks) & belum diambil alih agen
@@ -135,6 +137,13 @@ app.use('/api', requireAuth); // semua /api di bawah ini butuh login
 app.get('/api/push/vapid-key', (_req, res) => res.json({ key: getVapidPublic() }));
 app.post('/api/push/subscribe', async (req, res) => { await savePushSub(req.user.email, req.body); res.json({ ok: true }); });
 app.post('/api/push/unsubscribe', async (req, res) => { await deletePushSub(req.body.endpoint); res.json({ ok: true }); });
+
+// FCM (notif app Android)
+app.post('/api/fcm/register', async (req, res) => {
+  if (!req.body.token) return res.status(400).json({ error: 'token wajib' });
+  await saveFcmToken(req.body.token, req.user.email); res.json({ ok: true });
+});
+app.post('/api/fcm/unregister', async (req, res) => { await deleteFcmToken(req.body.token || ''); res.json({ ok: true }); });
 
 app.get('/api/stats', async (_req, res) => res.json(await stats()));
 app.get('/api/reports/agents', requireReports, async (_req, res) => res.json(await agentReport()));
@@ -510,6 +519,7 @@ await initRoles();
 await initMasters();
 await initAuth();
 await initPush();
+await initFcm();
 await loadConfig();
 if ((await listPipelines()).length === 0) {
   const pid = await createPipeline('Umum', ['Baru', 'Dihubungi', 'Tertarik', 'Negosiasi', 'Deal', 'Batal']);
