@@ -14,14 +14,17 @@ jobs:
       - run:
           name: Build debug APK
           command: cd android && ./gradlew assembleDebug --no-daemon --stacktrace
+      - run:
+          name: Daftar APK hasil build
+          command: find android/app/build/outputs -name '*.apk' -print
       - save_cache:
           paths:
             - ~/.gradle/caches
             - ~/.gradle/wrapper
           key: gradle-v1-{{ checksum "android/app/build.gradle" }}
       - store_artifacts:
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          destination: app-debug.apk
+          path: android/app/build/outputs/apk/debug
+          destination: apk
 
 workflows:
   android:
