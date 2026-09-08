@@ -25,6 +25,17 @@ export default function Shell({ me, onLogout }) {
   const [active, setActive] = useState(null); // wa_id percakapan terbuka
   const [menuOpen, setMenuOpen] = useState(false);
   const [notif, setNotif] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const [showPw, setShowPw] = useState(false);
+  const [pw, setPw] = useState({ old_password: '', new_password: '' });
+  const [pwMsg, setPwMsg] = useState('');
+  const changePw = async (e) => {
+    e.preventDefault();
+    const res = await post('/change-password', pw);
+    const d = await res.json();
+    if (!res.ok) return setPwMsg(d.error);
+    setPwMsg('✓ Password diganti'); setPw({ old_password: '', new_password: '' });
+    setTimeout(() => { setShowPw(false); setPwMsg(''); }, 1200);
+  };
   const activeRef = useRef(active);
   activeRef.current = active;
 
@@ -108,9 +119,25 @@ export default function Shell({ me, onLogout }) {
           {notif !== 'granted' && notif !== 'unsupported' && (
             <button className="link" onClick={askNotif} style={{ display: 'block', marginBottom: 6 }}>🔔 Aktifkan notifikasi</button>
           )}
+          <button className="link" onClick={() => { setShowPw(true); setPwMsg(''); }} style={{ display: 'block', marginBottom: 6 }}>🔑 Ganti password</button>
           <button className="link" onClick={async () => { await fetch('/api/logout', { method: 'POST' }); onLogout(); }}>Keluar</button>
         </div>
       </aside>
+
+      {showPw && (
+        <div className="modal-bg" onClick={() => setShowPw(false)}>
+          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={changePw}>
+            <h2>🔑 Ganti password</h2>
+            <input type="password" required placeholder="Password lama" value={pw.old_password} onChange={(e) => setPw({ ...pw, old_password: e.target.value })} style={{ padding: 8, border: '1px solid #ccc', borderRadius: 6 }} />
+            <input type="password" required minLength={6} placeholder="Password baru (min 6)" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} style={{ padding: 8, border: '1px solid #ccc', borderRadius: 6 }} />
+            {pwMsg && <div className={pwMsg.startsWith('✓') ? 'saved' : 'err'}>{pwMsg}</div>}
+            <div className="modal-actions">
+              <button type="button" className="link" onClick={() => setShowPw(false)}>Batal</button>
+              <button>Simpan</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <main className="content">
         {nav === 'dashboard' && <Dashboard onOpen={openChat} setNav={setNav} />}

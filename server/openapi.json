@@ -31,6 +31,16 @@
     "/me": {
       "get": { "summary": "Profil user dari token aktif", "responses": { "200": { "description": "OK" }, "401": { "description": "unauthorized" } } }
     },
+    "/change-password": {
+      "post": {
+        "summary": "Ganti password sendiri",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["old_password", "new_password"],
+          "properties": { "old_password": { "type": "string" }, "new_password": { "type": "string", "minLength": 6 } }
+        } } } },
+        "responses": { "200": { "description": "OK" }, "400": { "description": "Password lama salah / tidak valid" } }
+      }
+    },
     "/conversations": {
       "get": {
         "summary": "Daftar percakapan",

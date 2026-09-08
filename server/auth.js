@@ -126,6 +126,15 @@ export function mountAuth(app) {
     res.set('Set-Cookie', 'sid=; HttpOnly; Path=/; Max-Age=0').json({ ok: true });
   });
   app.get('/api/me', requireAuth, (req, res) => res.json(req.user));
+
+  app.post('/api/change-password', requireAuth, async (req, res) => {
+    const { old_password, new_password } = req.body;
+    const err = validate(req.body, { old_password: [required('Password lama')], new_password: [required('Password baru'), minLen(6, 'Password baru')] });
+    if (err) return res.status(400).json({ error: err });
+    if (!(await verify(req.user.email, old_password))) return res.status(400).json({ error: 'Password lama salah' });
+    await q('UPDATE users SET pass=$1 WHERE email=$2', [hash(new_password), req.user.email]);
+    res.json({ ok: true });
+  });
   app.get('/api/users', requireAuth, async (_req, res) => res.json(await listUsers()));
 
   app.post('/api/users', requireAuth, requireCap('agents'), async (req, res) => {
