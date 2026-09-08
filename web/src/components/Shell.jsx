@@ -68,14 +68,20 @@ export default function Shell({ me, onLogout }) {
     return () => es.close();
   }, []);
 
-  // Registrasi token FCM app Android (native inject token lewat AndroidApp.fcmToken())
+  // Registrasi token FCM app Android. Native bisa dorong via window.__registerFcm,
+  // atau web tarik via AndroidApp.fcmToken() — retry beberapa kali sampai token siap.
   useEffect(() => {
     window.__registerFcm = (token) => { if (token) post('/fcm/register', { token }); };
-    try {
-      const t = window.AndroidApp && window.AndroidApp.fcmToken && window.AndroidApp.fcmToken();
-      if (t) post('/fcm/register', { token: t });
-    } catch { /* bukan app Android */ }
-    return () => { delete window.__registerFcm; };
+    let tries = 0;
+    const iv = setInterval(() => {
+      tries += 1;
+      try {
+        const t = window.AndroidApp && window.AndroidApp.fcmToken && window.AndroidApp.fcmToken();
+        if (t) { post('/fcm/register', { token: t }); clearInterval(iv); }
+      } catch { clearInterval(iv); } // bukan app Android
+      if (tries >= 10) clearInterval(iv);
+    }, 1500);
+    return () => { clearInterval(iv); delete window.__registerFcm; };
   }, []);
 
   const askNotif = async () => {
