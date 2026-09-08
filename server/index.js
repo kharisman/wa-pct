@@ -484,8 +484,10 @@ app.get('/media/:name', async (req, res) => {
 app.get('/openapi.json', (_req, res) => res.sendFile(fileURLToPath(new URL('./openapi.json', import.meta.url))));
 app.get('/docs', (_req, res) => res.type('html').send(`<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PalComTech CRM API</title></head>
+<title>PalComTech CRM API</title>
+<style>#dl{position:fixed;top:12px;right:16px;z-index:9999;background:#152159;color:#fff;padding:8px 14px;border-radius:8px;font:600 13px system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}</style></head>
 <body>
+<a id="dl" href="/openapi.json" download="palcomtech-crm-openapi.json">⬇️ Download JSON</a>
 <script id="api-reference" data-url="/openapi.json"></script>
 <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 </body></html>`));
