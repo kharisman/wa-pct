@@ -100,6 +100,12 @@ export default function Shell({ me, onLogout }) {
     }
   };
 
+  // Dipanggil native app saat notif di-tap → buka chat terkait
+  useEffect(() => {
+    window.__openChat = (wa) => { if (wa) { setActive(wa); setNav('conversations'); } return true; };
+    return () => { delete window.__openChat; };
+  }, []);
+
   const can = (c) => me.perms?.includes('all') || me.perms?.includes(c);
   const items = [
     ['dashboard', '📊', 'Dashboard'],

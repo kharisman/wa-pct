@@ -23,7 +23,7 @@ class FcmService : FirebaseMessagingService() {
     override fun onMessageReceived(msg: RemoteMessage) {
         val title = msg.notification?.title ?: "Pesan masuk"
         val body = msg.notification?.body ?: msg.data["body"] ?: ""
-        showNotification(this, title, body)
+        showNotification(this, title, body, msg.data["wa_id"])
     }
 }
 
@@ -34,10 +34,12 @@ fun ensureChannel(ctx: Context) {
     }
 }
 
-fun showNotification(ctx: Context, title: String, body: String) {
+fun showNotification(ctx: Context, title: String, body: String, waId: String? = null) {
     ensureChannel(ctx)
-    val intent = Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-    val pi = PendingIntent.getActivity(ctx, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    val intent = Intent(ctx, MainActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        .putExtra("wa_id", waId)
+    val pi = PendingIntent.getActivity(ctx, waId?.hashCode() ?: 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     val n = NotificationCompat.Builder(ctx, CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_launcher_foreground)
         .setContentTitle(title)

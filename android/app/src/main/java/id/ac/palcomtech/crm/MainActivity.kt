@@ -108,6 +108,31 @@ class MainActivity : AppCompatActivity() {
         })
 
         if (savedInstanceState == null) web.loadUrl(getString(R.string.crm_url))
+        openChatFromIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openChatFromIntent(intent)
+    }
+
+    // Buka chat sesuai wa_id dari notifikasi. Retry sampai window.__openChat siap (SPA + login).
+    private fun openChatFromIntent(intent: Intent?) {
+        val wa = intent?.getStringExtra("wa_id") ?: return
+        if (wa.isEmpty()) return
+        val safe = wa.replace("'", "")
+        var tries = 0
+        val h = android.os.Handler(mainLooper)
+        val r = object : Runnable {
+            override fun run() {
+                tries++
+                web.evaluateJavascript("(window.__openChat && window.__openChat('$safe'))||false") { res ->
+                    if (res != "true" && tries < 20) h.postDelayed(this, 700)
+                }
+            }
+        }
+        h.postDelayed(r, 700)
     }
 
     override fun onPause() {
