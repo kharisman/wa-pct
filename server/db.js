@@ -104,7 +104,7 @@ export const setContactAiOff = (waId, off) => q('UPDATE contacts SET ai_off=$1 W
 export const listConversations = async () =>
   (await q(`
     SELECT c.wa_id, c.name, c.labels, c.assignee, c.channel_id, c.stage, c.pipeline_id, c.ai_off,
-           ch.label AS channel_label,
+           ch.label AS channel_label, ch.ai_enabled AS channel_ai,
            (SELECT body FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_body,
            (SELECT direction FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_dir,
            (SELECT created_at FROM messages m WHERE m.wa_id=c.wa_id ORDER BY m.id DESC LIMIT 1) AS last_at

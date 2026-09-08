@@ -253,6 +253,14 @@ export default function Conversations({ me, active, setActive }) {
                   <div className="quick-item act" onClick={() => { setShowActions(false); setShowTpl(true); }}>📋 Kirim template</div>
                   <div className="quick-item act" onClick={() => { setShowActions(false); setShowNote(true); }}>📝 Catatan internal</div>
                   <div className="quick-item act" onClick={() => { if (!aiBusy) { setShowActions(false); aiSuggest(); } }}>🤖 {aiBusy ? 'Menyusun…' : 'Balas dengan AI'}</div>
+                  {(() => {
+                    const off = convs.find((c) => c.wa_id === active)?.ai_off;
+                    return (
+                      <div className="quick-item act" onClick={async () => { setShowActions(false); await post('/contact/' + active, { ai_off: off ? 0 : 1 }); loadConvs(); }}>
+                        {off ? '🤖 Aktifkan AI (lepas ambil alih)' : '🙋 Ambil alih (matikan AI)'}
+                      </div>
+                    );
+                  })()}
                   <div className="act-sep">Balasan cepat</div>
                   {quick.length === 0 && <div className="quick-empty">Belum ada balasan cepat.</div>}
                   {quick.map((q) => (
@@ -263,8 +271,15 @@ export default function Conversations({ me, active, setActive }) {
                 </div>
               )}
             </div>
-            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ketik balasan…" />
-            <button disabled={sending}>Kirim</button>
+            {(() => {
+              const c = convs.find((x) => x.wa_id === active);
+              const aiLocked = !!(c?.channel_ai && !c?.ai_off); // AI masih pegang → kunci kotak
+              return (<>
+                <input value={text} onChange={(e) => setText(e.target.value)} disabled={aiLocked}
+                  placeholder={aiLocked ? 'AI sedang menangani — matikan AI (＋ → Ambil alih) untuk membalas' : 'Ketik balasan…'} />
+                <button disabled={sending || aiLocked}>Kirim</button>
+              </>);
+            })()}
           </form>
         </div>
       ) : (
