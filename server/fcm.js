@@ -49,7 +49,13 @@ export async function sendFcmToAll({ title, body, wa_id }) {
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(msg),
       });
-      if (res.status === 404 || res.status === 403) await deleteFcmToken(t); // token mati → buang
-    } catch (e) { console.error('FCM send gagal', e.message); }
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error(`FCM error ${res.status}:`, errBody.slice(0, 400));
+        if (res.status === 404 || res.status === 403) await deleteFcmToken(t); // token mati → buang
+      } else {
+        console.log('FCM terkirim ke', t.slice(0, 12));
+      }
+    } catch (e) { console.error('FCM fetch gagal', e.message); }
   }
 }
