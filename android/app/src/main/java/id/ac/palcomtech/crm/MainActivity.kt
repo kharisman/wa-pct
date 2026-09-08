@@ -71,6 +71,7 @@ class MainActivity : AppCompatActivity() {
             databaseEnabled = true
             mediaPlaybackRequiresUserGesture = false
         }
+        CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
 
         // Link internal tetap di WebView; tel/mailto/wa dibuka aplikasi lain
@@ -107,6 +108,11 @@ class MainActivity : AppCompatActivity() {
         })
 
         if (savedInstanceState == null) web.loadUrl(getString(R.string.crm_url))
+    }
+
+    override fun onPause() {
+        super.onPause()
+        CookieManager.getInstance().flush() // simpan cookie sesi ke disk biar login bertahan
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
