@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { api, post } from '../api.js';
+import { api, post, patch } from '../api.js';
 import Media from '../components/Media.jsx';
 import ContactPanel from '../components/ContactPanel.jsx';
 import SendTemplate from '../components/SendTemplate.jsx';
@@ -212,7 +212,7 @@ export default function Conversations({ me, active, setActive }) {
               const off = ac?.ai_off;
               return (
                 <button className={'ai-th' + (off ? ' off' : '')} title={off ? 'AI dimatikan untuk kontak ini — klik untuk aktifkan' : 'AI aktif — klik untuk ambil alih (matikan AI)'}
-                  onClick={async () => { await post('/contact/' + active, { ai_off: off ? 0 : 1 }); loadConvs(); }}>
+                  onClick={async () => { await patch('/contact/' + active, { ai_off: off ? 0 : 1 }); loadConvs(); }}>
                   {off ? '🙋 Diambil alih' : '🤖 AI aktif'}
                 </button>
               );
@@ -258,7 +258,7 @@ export default function Conversations({ me, active, setActive }) {
                   {(() => {
                     const off = convs.find((c) => c.wa_id === active)?.ai_off;
                     return (
-                      <div className="quick-item act" onClick={async () => { setShowActions(false); await post('/contact/' + active, { ai_off: off ? 0 : 1 }); loadConvs(); }}>
+                      <div className="quick-item act" onClick={async () => { setShowActions(false); await patch('/contact/' + active, { ai_off: off ? 0 : 1 }); loadConvs(); }}>
                         {off ? '🤖 Aktifkan AI (lepas ambil alih)' : '🙋 Ambil alih (matikan AI)'}
                       </div>
                     );
