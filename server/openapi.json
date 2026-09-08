@@ -1,0 +1,114 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PalComTech CRM API",
+    "version": "1.0.0",
+    "description": "API WhatsApp CRM. Autentikasi pakai API key (Pengaturan → API Key). Kirim header `X-API-Key` atau `Authorization: Bearer <key>` di setiap request."
+  },
+  "servers": [{ "url": "/api" }],
+  "security": [{ "ApiKeyAuth": [] }, { "BearerAuth": [] }],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": { "type": "apiKey", "in": "header", "name": "X-API-Key" },
+      "BearerAuth": { "type": "http", "scheme": "bearer" }
+    }
+  },
+  "paths": {
+    "/conversations": {
+      "get": {
+        "summary": "Daftar percakapan",
+        "description": "Semua chat beserta pesan terakhir.",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/messages/{waId}": {
+      "get": {
+        "summary": "Pesan satu chat (10 terbaru)",
+        "parameters": [
+          { "name": "waId", "in": "path", "required": true, "schema": { "type": "string" }, "example": "628123456789" },
+          { "name": "before", "in": "query", "required": false, "schema": { "type": "integer" }, "description": "id pesan tertua yang sudah dimuat, untuk muat lebih lama" }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/send": {
+      "post": {
+        "summary": "Kirim pesan teks",
+        "description": "Hanya jalan dalam window 24 jam sejak pesan terakhir pelanggan. Di luar itu pakai /send-template.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object", "required": ["wa_id", "body"],
+            "properties": { "wa_id": { "type": "string", "example": "628123456789" }, "body": { "type": "string", "example": "Halo kak" } }
+          } } }
+        },
+        "responses": { "200": { "description": "Terkirim" }, "400": { "description": "wa_id & body wajib" }, "502": { "description": "Gagal ke WhatsApp" } }
+      }
+    },
+    "/note": {
+      "post": {
+        "summary": "Catatan internal (tidak dikirim ke WA)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object", "required": ["wa_id", "body"],
+            "properties": { "wa_id": { "type": "string" }, "body": { "type": "string" } }
+          } } }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/contact/{waId}": {
+      "get": {
+        "summary": "Detail kontak",
+        "parameters": [{ "name": "waId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "patch": {
+        "summary": "Ubah kontak",
+        "parameters": [{ "name": "waId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": {
+          "type": "object",
+          "properties": { "name": { "type": "string" }, "assignee": { "type": "string" }, "stage": { "type": "string" }, "labels": { "type": "array", "items": { "type": "string" } } }
+        } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/ai-suggest": {
+      "post": {
+        "summary": "Minta draft balasan AI",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["wa_id"], "properties": { "wa_id": { "type": "string" } }
+        } } } },
+        "responses": { "200": { "description": "Draft" } }
+      }
+    },
+    "/stats": {
+      "get": { "summary": "Ringkasan angka", "responses": { "200": { "description": "OK" } } }
+    },
+    "/templates": {
+      "get": { "summary": "Daftar template WhatsApp", "responses": { "200": { "description": "OK" } } }
+    },
+    "/send-template": {
+      "post": {
+        "summary": "Kirim template (untuk di luar window 24 jam)",
+        "responses": { "200": { "description": "Terkirim" } }
+      }
+    },
+    "/keys": {
+      "get": { "summary": "Daftar API key (khusus admin)", "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "summary": "Buat API key (khusus admin)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "label": { "type": "string", "example": "App Android" } } } } } },
+        "responses": { "200": { "description": "{ key }" } }
+      }
+    },
+    "/keys/{key}": {
+      "delete": {
+        "summary": "Hapus API key (khusus admin)",
+        "parameters": [{ "name": "key", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}

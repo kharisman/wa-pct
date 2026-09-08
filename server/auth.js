@@ -20,9 +20,26 @@ export async function initAuth() {
   await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS role text');
   await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS division text');
   await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS jabatan text');
+  await q(`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      key        text PRIMARY KEY,
+      label      text NOT NULL,
+      created_at bigint NOT NULL
+    );
+  `);
   const WEEK = 7 * 24 * 3600 * 1000;
   await q('DELETE FROM sessions WHERE created_at < $1', [Date.now() - WEEK]);
 }
+
+// API key (buat app Android dll) — akses penuh, bisa dibuat banyak
+export const createApiKey = async (label) => {
+  const key = 'wak_' + randomBytes(24).toString('hex');
+  await q('INSERT INTO api_keys(key,label,created_at) VALUES($1,$2,$3)', [key, label || 'tanpa nama', Date.now()]);
+  return key;
+};
+export const listApiKeys = async () =>
+  (await q('SELECT key, label, created_at FROM api_keys ORDER BY created_at')).rows;
+export const deleteApiKey = (key) => q('DELETE FROM api_keys WHERE key=$1', [key]);
 
 const hash = (pw, salt = randomBytes(16).toString('hex')) =>
   `${salt}:${scryptSync(pw, salt, 32).toString('hex')}`;
@@ -61,6 +78,14 @@ const parseCookie = (h = '') => Object.fromEntries(h.split(';').map((c) => c.tri
 
 export async function requireAuth(req, res, next) {
   try {
+    // API key (header X-API-Key atau Authorization: Bearer <key>) → akses penuh
+    const apiKey = req.headers['x-api-key'] || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (apiKey) {
+      const k = (await q('SELECT label FROM api_keys WHERE key=$1', [apiKey])).rows[0];
+      if (!k) return res.status(401).json({ error: 'invalid api key' });
+      req.user = { email: 'apikey', name: k.label, is_admin: 1, perms: ['all'] };
+      return next();
+    }
     const token = parseCookie(req.headers.cookie).sid;
     const s = token && (await q('SELECT email FROM sessions WHERE token=$1', [token])).rows[0];
     if (!s) return res.status(401).json({ error: 'unauthorized' });
@@ -113,5 +138,14 @@ export function mountAuth(app) {
     await q('DELETE FROM users WHERE email=$1', [req.params.email]);
     await q('DELETE FROM sessions WHERE email=$1', [req.params.email]);
     res.json({ ok: true });
+  });
+
+  // ===== API keys (khusus admin) — full key ikut dikirim biar bisa dicopy/hapus dari UI
+  app.get('/api/keys', requireAuth, requireAdmin, async (_req, res) => res.json(await listApiKeys()));
+  app.post('/api/keys', requireAuth, requireAdmin, async (req, res) => {
+    res.json({ key: await createApiKey(req.body.label) });
+  });
+  app.delete('/api/keys/:key', requireAuth, requireAdmin, async (req, res) => {
+    await deleteApiKey(req.params.key); res.json({ ok: true });
   });
 }

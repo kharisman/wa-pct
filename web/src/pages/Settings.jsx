@@ -12,10 +12,17 @@ export default function Settings() {
   const [ai, setAi] = useState({ system: '', funnel: [], knowledge: [], handover: '' });
   const [aiSaved, setAiSaved] = useState(false);
 
+  const [keys, setKeys] = useState([]);
+  const [keyLabel, setKeyLabel] = useState('');
+  const loadKeys = () => api('/keys').then((k) => setKeys(Array.isArray(k) ? k : []));
+  const addKey = async (e) => { e.preventDefault(); await post('/keys', { label: keyLabel || 'Android' }); setKeyLabel(''); loadKeys(); };
+  const delKey = async (key) => { if (!confirm('Hapus API key ini? App yang memakainya akan langsung kehilangan akses.')) return; await fetch('/api/keys/' + key, { method: 'DELETE' }); loadKeys(); };
+
   useEffect(() => {
     fetch('/api/settings').then((r) => r.json()).then(setCfg);
     api('/auto-reply').then(setAr);
     api('/ai-config').then((d) => setAi({ system: d.system || '', funnel: d.funnel || [], knowledge: d.knowledge || [], handover: d.handover || '' }));
+    loadKeys();
   }, []);
 
   const save = async (e) => { e.preventDefault(); const res = await patch('/settings', form); setCfg(await res.json()); setForm({}); setSaved(true); setTimeout(() => setSaved(false), 1500); };
@@ -33,7 +40,7 @@ export default function Settings() {
     </div>
   );
 
-  const TABS = [['koneksi', '🔌 Koneksi'], ['ai', '🤖 Asisten AI'], ['otomatis', '⚙️ Otomatis']];
+  const TABS = [['koneksi', '🔌 Koneksi'], ['ai', '🤖 Asisten AI'], ['otomatis', '⚙️ Otomatis'], ['apikey', '🔑 API Key']];
 
   return (
     <div className="page">
@@ -114,6 +121,33 @@ export default function Settings() {
 
             <div className="row" style={{ marginTop: 8 }}><button>Simpan pengaturan AI</button>{aiSaved && <span className="saved">✓ tersimpan</span>}</div>
           </form>
+        </div>
+      )}
+
+      {tab === 'apikey' && (
+        <div className="card">
+          <h2>API Key</h2>
+          <p className="muted">Buat key untuk akses API dari luar (mis. app Android). Kirim di header tiap request:<br />
+            <code>X-API-Key: &lt;key&gt;</code> atau <code>Authorization: Bearer &lt;key&gt;</code>. Key = akses penuh, jaga kerahasiaannya.</p>
+          <form onSubmit={addKey} className="row" style={{ gap: 8, marginBottom: 14 }}>
+            <input value={keyLabel} placeholder="Nama key (mis. App Android)" onChange={(e) => setKeyLabel(e.target.value)} style={{ flex: 1, padding: 8, border: '1px solid #ccc', borderRadius: 6 }} />
+            <button>＋ Buat key</button>
+          </form>
+          {keys.length === 0 ? <p className="muted">Belum ada key.</p> : (
+            <table className="tbl"><thead><tr><th>Nama</th><th>Key</th><th>Dibuat</th><th></th></tr></thead>
+              <tbody>
+                {keys.map((k) => (
+                  <tr key={k.key}>
+                    <td>{k.label}</td>
+                    <td><code style={{ fontSize: 12, wordBreak: 'break-all' }}>{k.key}</code>{' '}
+                      <button type="button" className="link" onClick={() => navigator.clipboard?.writeText(k.key)}>salin</button></td>
+                    <td>{new Date(Number(k.created_at)).toLocaleDateString('id-ID')}</td>
+                    <td><button type="button" className="link" style={{ color: '#c0392b' }} onClick={() => delKey(k.key)}>hapus</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 

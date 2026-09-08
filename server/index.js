@@ -480,6 +480,16 @@ app.get('/media/:name', async (req, res) => {
   } catch { res.sendStatus(404); }
 });
 
+/* ---- Dokumentasi API (Scalar) ---- */
+app.get('/openapi.json', (_req, res) => res.sendFile(fileURLToPath(new URL('./openapi.json', import.meta.url))));
+app.get('/docs', (_req, res) => res.type('html').send(`<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PalComTech CRM API</title></head>
+<body>
+<script id="api-reference" data-url="/openapi.json"></script>
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body></html>`));
+
 /* ---- Serve React build kalau sudah di-build ---- */
 const dist = fileURLToPath(new URL('../web/dist', import.meta.url));
 if (existsSync(dist)) {
