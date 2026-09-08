@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- gelembung chat sederhana, di area aman adaptive icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,32 C42,32 32,40 32,50 C32,55 34,59 38,62 L36,72 L47,68 C49,68 51,69 54,69 C66,69 76,61 76,50 C76,40 66,32 54,32 Z" />
+</vector>
