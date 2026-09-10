@@ -103,7 +103,14 @@ class MainActivity : AppCompatActivity() {
         // Tombol back = mundur di riwayat WebView dulu
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (web.canGoBack()) web.goBack() else { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
+                // Tanya web dulu: kalau ada chat terbuka, web menutupnya (return true)
+                web.evaluateJavascript("(window.__onBack && window.__onBack())||false") { res ->
+                    runOnUiThread {
+                        if (res == "true") return@runOnUiThread
+                        if (web.canGoBack()) web.goBack()
+                        else { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
+                    }
+                }
             }
         })
 

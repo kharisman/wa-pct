@@ -103,7 +103,9 @@ export default function Shell({ me, onLogout }) {
   // Dipanggil native app saat notif di-tap → buka chat terkait
   useEffect(() => {
     window.__openChat = (wa) => { if (wa) { setActive(wa); setNav('conversations'); } return true; };
-    return () => { delete window.__openChat; };
+    // Tombol Back native: kalau ada chat terbuka, tutup dulu (balik ke list) bukan keluar app
+    window.__onBack = () => { if (activeRef.current) { setActive(null); return true; } return false; };
+    return () => { delete window.__openChat; delete window.__onBack; };
   }, []);
 
   const can = (c) => me.perms?.includes('all') || me.perms?.includes(c);
