@@ -5,21 +5,27 @@ const PAGE = 20;
 
 export default function Contacts({ onOpen }) {
   const [rows, setRows] = useState([]);
+  const [pipelines, setPipelines] = useState([]);
   const [qy, setQy] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [pipe, setPipe] = useState('');   // id pipeline
+  const [stage, setStage] = useState(''); // nama tahap
   const [page, setPage] = useState(0);
-  useEffect(() => { api('/conversations').then(setRows); }, []);
+  useEffect(() => { api('/conversations').then(setRows); api('/pipelines').then(setPipelines); }, []);
 
   const cFrom = from ? new Date(from).setHours(0, 0, 0, 0) : 0;
   const cTo = to ? new Date(to).setHours(23, 59, 59, 999) : Infinity;
+  const stages = pipelines.find((p) => String(p.id) === pipe)?.stages || [];
 
   const filtered = useMemo(() => rows.filter((c) =>
     ((c.name || '').toLowerCase().includes(qy.toLowerCase()) || c.wa_id.includes(qy))
     && (!c.last_at || (c.last_at >= cFrom && c.last_at <= cTo))
-  ), [rows, qy, cFrom, cTo]);
+    && (!pipe || String(c.pipeline_id) === pipe)
+    && (!stage || c.stage === stage)
+  ), [rows, qy, cFrom, cTo, pipe, stage]);
 
-  useEffect(() => { setPage(0); }, [qy, from, to]);
+  useEffect(() => { setPage(0); }, [qy, from, to, pipe, stage]);
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const view = filtered.slice(page * PAGE, page * PAGE + PAGE);
 
@@ -46,6 +52,14 @@ export default function Contacts({ onOpen }) {
 
       <div className="ct-filters">
         <input className="search" placeholder="🔍 Cari nama / nomor…" value={qy} onChange={(e) => setQy(e.target.value)} />
+        <select className="ct-select" value={pipe} onChange={(e) => { setPipe(e.target.value); setStage(''); }}>
+          <option value="">Semua pipeline</option>
+          {pipelines.map((p) => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+        </select>
+        <select className="ct-select" value={stage} onChange={(e) => setStage(e.target.value)} disabled={!pipe}>
+          <option value="">Semua tahap</option>
+          {stages.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
         <div className="ct-period">
           <label>Periode</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />

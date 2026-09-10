@@ -232,6 +232,11 @@ body { color: #1b2340; }
   /* composer nempel di bawah + aman dari home-bar iOS */
   .thread .composer { position: sticky; bottom: 0; background: #fff; }
   .back-btn { display: inline-block; }
+  .detail-btn { display: inline-block; }
+  /* Panel detail kontak jadi drawer geser dari kanan */
+  .app.has-active .panel.open { display: block; position: fixed; top: 0; right: 0; bottom: 0; width: 86vw; max-width: 340px; background: #fff; z-index: 65; box-shadow: -4px 0 20px rgba(0,0,0,.3); }
+  .panel.open .panel-close { display: block; position: absolute; top: 10px; right: 12px; background: none; border: 0; font-size: 20px; color: #666; cursor: pointer; }
+  .panel-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 64; }
 
   .page { padding: 60px 14px 14px; }
   .page-title { font-size: 19px; }
@@ -350,6 +355,9 @@ body { color: #1b2340; }
 .conv-reset { background: none; border: 0; color: #dc2626; cursor: pointer; font-size: 12px; font: inherit; padding: 4px; white-space: nowrap; }
 .ai-th { flex: none; border: 1px solid #cbd5e6; background: #eaf7ef; color: #157a54; border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .ai-th.off { background: #fdecea; color: #c0392b; border-color: #f0c4bf; }
+.detail-btn { display: none; background: none; border: 0; font-size: 22px; cursor: pointer; color: #152159; padding: 0 0 0 6px; }
+.panel-close { display: none; }
+.panel-backdrop { display: none; }
 
 /* Loading global */
 .gloader-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 9999;
@@ -384,6 +392,8 @@ body { color: #1b2340; }
 .ct-period { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #d5dbe6; border-radius: 8px; padding: 4px 8px; }
 .ct-period label { font-size: 12px; color: #666; font-weight: 600; }
 .ct-period input[type=date] { border: 0; font: inherit; font-size: 13px; }
+.ct-select { padding: 9px 10px; border: 1px solid #d5dbe6; border-radius: 8px; font: inherit; font-size: 13px; background: #fff; color: #1b2340; cursor: pointer; }
+.ct-select:disabled { opacity: .55; cursor: default; }
 .pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 14px; font-size: 13px; color: #555; }
 .pager .link { font-weight: 600; }
 .pager .link:disabled { opacity: .4; cursor: default; }

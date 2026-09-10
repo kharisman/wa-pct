@@ -20,6 +20,7 @@ export default function Conversations({ me, active, setActive }) {
   const [noteText, setNoteText] = useState('');
   const [quick, setQuick] = useState([]);
   const [showActions, setShowActions] = useState(false);
+  const [showPanel, setShowPanel] = useState(false); // drawer detail kontak (mobile)
   useEffect(() => { api('/quick-replies').then(setQuick); }, []);
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
@@ -69,6 +70,7 @@ export default function Conversations({ me, active, setActive }) {
   useEffect(() => {
     if (active) api('/messages/' + active).then((m) => { setMsgs(m); setHasMore(m.length === 10); });
     else { setMsgs([]); setHasMore(false); }
+    setShowPanel(false); // tutup drawer detail saat ganti chat
   }, [active]);
 
   const loadOlder = async () => {
@@ -217,6 +219,7 @@ export default function Conversations({ me, active, setActive }) {
                 </button>
               );
             })()}
+            <button className="detail-btn" title="Detail kontak" onClick={() => setShowPanel(true)}>ⓘ</button>
           </div>
           <div className="msgs" ref={msgsEl}>
             {hasMore && <button type="button" className="load-older" onClick={loadOlder}>↑ Muat pesan lama</button>}
@@ -288,7 +291,9 @@ export default function Conversations({ me, active, setActive }) {
         <div className="empty">Pilih percakapan di kiri.</div>
       )}
 
-      {active && <ContactPanel key={active} waId={active} users={users} onChange={loadConvs} />}
+      {active && showPanel && <div className="panel-backdrop" onClick={() => setShowPanel(false)} />}
+      {active && <ContactPanel key={active} waId={active} users={users} onChange={loadConvs}
+        className={showPanel ? 'open' : ''} onClose={() => setShowPanel(false)} />}
       {showTpl && active && <SendTemplate waId={active} onClose={() => setShowTpl(false)} onSent={loadConvs} />}
       {showNote && active && (
         <div className="modal-bg" onClick={() => setShowNote(false)}>

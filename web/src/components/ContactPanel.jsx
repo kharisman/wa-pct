@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api, patch, post } from '../api.js';
 
-export default function ContactPanel({ waId, users, onChange }) {
+export default function ContactPanel({ waId, users, onChange, className = '', onClose }) {
   const [c, setC] = useState(null);
   const [saved, setSaved] = useState(false);
   const [tag, setTag] = useState('');
@@ -29,11 +29,12 @@ export default function ContactPanel({ waId, users, onChange }) {
     setSaved(true); setTimeout(() => setSaved(false), 1200); onChange();
   };
 
-  if (!c) return <div className="panel" />;
+  if (!c) return <div className={'panel ' + className} />;
   const labels = JSON.parse(c.labels || '[]');
 
   return (
-    <div className="panel">
+    <div className={'panel ' + className}>
+      {onClose && <button className="panel-close" onClick={onClose}>✕</button>}
       <h2>{c.name || waId}</h2>
       <div className="wa">{waId}</div>
 
