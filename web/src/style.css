@@ -187,6 +187,9 @@ body { color: #1b2340; }
 .pipe-bar select { padding: 8px 12px; border: 1px solid #cfd6e4; border-radius: 8px; font: inherit; background: #fff; font-weight: 600; color: #152159; }
 .pipe-bar .link { background: #fff; border: 1px solid #d7deea; border-radius: 8px; padding: 7px 12px; color: #152159; font-weight: 500; }
 .pipe-bar .link:hover { background: #f0f3f9; }
+.pipe-search { margin-left: auto; padding: 8px 12px; border: 1px solid #cfd6e4; border-radius: 8px; font: inherit; background: #fff; min-width: 220px; }
+.kcard-pipe { margin-top: 8px; width: 100%; padding: 5px 6px; border: 1px solid #e0e5ee; border-radius: 6px; font: inherit; font-size: 12px; background: #f7f9fc; color: #444; cursor: pointer; }
+@media (max-width: 760px) { .pipe-search { margin-left: 0; width: 100%; } }
 
 .kanban { display: flex; flex-wrap: nowrap; gap: 14px; overflow-x: auto; padding: 2px 2px 16px; align-items: flex-start; }
 .kcol { flex: 0 0 272px; width: 272px; box-sizing: border-box; background: #eef1f6; border-radius: 12px; display: flex; flex-direction: column; max-height: calc(100vh - 160px); }

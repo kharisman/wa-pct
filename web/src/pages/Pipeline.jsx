@@ -54,9 +54,21 @@ export default function Pipeline({ me, onOpen }) {
   const [drag, setDrag] = useState(null);
   const [form, setForm] = useState(null); // {mode:'new'|'edit'}
   const [confirmDel, setConfirmDel] = useState(false);
+  const [qy, setQy] = useState('');
+  const [bodyHits, setBodyHits] = useState(new Set());
 
   const loadPipes = () => api('/pipelines').then((p) => { setPipes(p); setSel((s) => s || p[0]?.id || null); });
-  useEffect(() => { loadPipes(); api('/conversations').then(setRows); }, []);
+  const loadRows = () => api('/conversations').then(setRows);
+  useEffect(() => { loadPipes(); loadRows(); }, []);
+  useEffect(() => {
+    if (qy.trim().length < 2) { setBodyHits(new Set()); return; }
+    const t = setTimeout(() => api('/search?q=' + encodeURIComponent(qy.trim())).then((d) => setBodyHits(new Set(d.ids || []))), 300);
+    return () => clearTimeout(t);
+  }, [qy]);
+  const matchQ = (c) => !qy
+    || (c.name || '').toLowerCase().includes(qy.toLowerCase())
+    || c.wa_id.includes(qy)
+    || bodyHits.has(c.wa_id);
 
   const firstId = pipes[0]?.id;
   const current = pipes.find((p) => p.id === sel);
@@ -65,6 +77,13 @@ export default function Pipeline({ me, onOpen }) {
   const move = async (waId, stage) => {
     setRows((rs) => rs.map((r) => (r.wa_id === waId ? { ...r, stage, pipeline_id: sel } : r)));
     await patch('/contact/' + waId, { stage, pipeline_id: sel });
+  };
+  // Pindahkan kontak ke pipeline lain (masuk ke tahap pertama pipeline tujuan)
+  const movePipeline = async (waId, pid) => {
+    const target = pipes.find((p) => p.id === pid);
+    const stage = target?.stages?.[0] || null;
+    setRows((rs) => rs.map((r) => (r.wa_id === waId ? { ...r, pipeline_id: pid, stage } : r)));
+    await patch('/contact/' + waId, { pipeline_id: pid, stage });
   };
 
   const savePipe = async ({ name, stages: st }) => {
@@ -93,6 +112,7 @@ export default function Pipeline({ me, onOpen }) {
           {current && <button className="link" onClick={() => setForm({ mode: 'edit' })}>Kelola tahap</button>}
           {current && pipes.length > 1 && <button className="link" onClick={() => setConfirmDel(true)}>Hapus</button>}
         </>}
+        <input className="pipe-search" placeholder="🔍 nama / nomor / isi chat…" value={qy} onChange={(e) => setQy(e.target.value)} />
       </div>
 
       {form && <PipelineForm mode={form.mode} initial={form.mode === 'edit' ? current : { name: '', stages: ['Baru', 'Proses', 'Selesai'] }} onSave={savePipe} onClose={() => setForm(null)} />}
@@ -111,7 +131,7 @@ export default function Pipeline({ me, onOpen }) {
 
       <div className="kanban" style={{ display: 'flex', flexWrap: 'nowrap', gap: 14, overflowX: 'auto', alignItems: 'flex-start' }}>
         {stages.map((st) => {
-          const items = rows.filter((r) => (r.pipeline_id || firstId) === sel && (r.stage || stages[0]) === st);
+          const items = rows.filter((r) => (r.pipeline_id || firstId) === sel && (r.stage || stages[0]) === st && matchQ(r));
           return (
             <div className="kcol" key={st} style={{ flex: '0 0 272px', width: 272 }}
               onDragOver={(e) => e.preventDefault()}
@@ -130,6 +150,12 @@ export default function Pipeline({ me, onOpen }) {
                       {JSON.parse(c.labels || '[]').slice(0, 2).map((l) => <span key={l} className="chip mini">{l}</span>)}
                       {c.assignee && <span className="who">{c.assignee.split('@')[0]}</span>}
                     </div>
+                    {pipes.length > 1 && (
+                      <select className="kcard-pipe" value={sel} onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => movePipeline(c.wa_id, Number(e.target.value))} title="Pindah pipeline">
+                        {pipes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    )}
                   </div>
                 ))}
                 {items.length === 0 && <div className="kempty">—</div>}

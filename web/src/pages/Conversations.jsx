@@ -55,12 +55,24 @@ export default function Conversations({ me, active, setActive }) {
   };
   const cutoff = dateCutoff(fDate);
 
+  // Cari isi chat via server (debounce), digabung dengan cocok nama/nomor lokal
+  const [bodyHits, setBodyHits] = useState(new Set());
+  useEffect(() => {
+    if (qy.trim().length < 2) { setBodyHits(new Set()); return; }
+    const t = setTimeout(() => api('/search?q=' + encodeURIComponent(qy.trim())).then((d) => setBodyHits(new Set(d.ids || []))), 300);
+    return () => clearTimeout(t);
+  }, [qy]);
+  const matchQ = (c) => !qy
+    || (c.name || '').toLowerCase().includes(qy.toLowerCase())
+    || c.wa_id.includes(qy)
+    || bodyHits.has(c.wa_id);
+
   const shown = convs.filter((c) =>
     (filter === 'mine' ? c.assignee === me.email
       : filter === 'unassigned' ? !c.assignee
         : filter === 'unreplied' ? needsReply(c)
           : true)
-    && (!qy || (c.name || '').toLowerCase().includes(qy.toLowerCase()) || c.wa_id.includes(qy))
+    && matchQ(c)
     && (!fChan || String(c.channel_id) === fChan)
     && (!cutoff || (c.last_at && c.last_at >= cutoff)));
   useEffect(() => { setLimit(25); }, [filter, qy, fChan, fDate]);

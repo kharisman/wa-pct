@@ -119,6 +119,10 @@ export const listMessages = async (waId, before, limit = 10) => {
   return rows.reverse();
 };
 
+// Cari wa_id yang punya pesan mengandung teks (buat pencarian isi chat)
+export const searchWaIds = async (text) =>
+  (await q("SELECT DISTINCT wa_id FROM messages WHERE body ILIKE $1 LIMIT 300", ['%' + text + '%'])).rows.map((r) => r.wa_id);
+
 // ===== Multi-nomor (channels) =====
 export async function initChannels() {
   await q(`CREATE TABLE IF NOT EXISTS channels (

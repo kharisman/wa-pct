@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import {
   upsertContact, insertMessage, updateStatus,
-  listConversations, listMessages, getContact, updateContact, setContactAiOff, initDb, stats, agentReport, pipelineFunnel,
+  listConversations, listMessages, searchWaIds, getContact, updateContact, setContactAiOff, initDb, stats, agentReport, pipelineFunnel,
   initTplMedia, setTplMedia, getTplMedia,
   initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel, setChannelAi, setChannelNumber,
   setContactChannel, q,
@@ -151,6 +151,10 @@ app.get('/api/reports/agents', requireReports, async (_req, res) => res.json(awa
 app.get('/api/reports/pipeline', requireReports, async (_req, res) => res.json(await pipelineFunnel()));
 app.get('/api/conversations', async (_req, res) => res.json(await listConversations()));
 app.get('/api/messages/:waId', async (req, res) => res.json(await listMessages(req.params.waId, req.query.before)));
+app.get('/api/search', async (req, res) => {
+  const qy = (req.query.q || '').trim();
+  res.json({ ids: qy.length >= 2 ? await searchWaIds(qy) : [] });
+});
 
 app.get('/api/contact/:waId', async (req, res) => res.json((await getContact(req.params.waId)) || {}));
 app.patch('/api/contact/:waId', async (req, res) => {
