@@ -219,7 +219,6 @@ export default function Conversations({ me, active, setActive }) {
                 </button>
               );
             })()}
-            <button className="detail-btn" title="Detail kontak" onClick={() => setShowPanel(true)}>ⓘ</button>
           </div>
           <div className="msgs" ref={msgsEl}>
             {hasMore && <button type="button" className="load-older" onClick={loadOlder}>↑ Muat pesan lama</button>}
@@ -257,6 +256,7 @@ export default function Conversations({ me, active, setActive }) {
                   <div className="quick-item act" onClick={() => { setShowActions(false); fileRef.current?.click(); }}>📎 Lampirkan file</div>
                   <div className="quick-item act" onClick={() => { setShowActions(false); setShowTpl(true); }}>📋 Kirim template</div>
                   <div className="quick-item act" onClick={() => { setShowActions(false); setShowNote(true); }}>📝 Catatan internal</div>
+                  <div className="quick-item act" onClick={() => { setShowActions(false); setShowPanel(true); }}>ℹ️ Detail & pipeline</div>
                   <div className="quick-item act" onClick={() => { if (!aiBusy) { setShowActions(false); aiSuggest(); } }}>🤖 {aiBusy ? 'Menyusun…' : 'Balas dengan AI'}</div>
                   {(() => {
                     const off = convs.find((c) => c.wa_id === active)?.ai_off;

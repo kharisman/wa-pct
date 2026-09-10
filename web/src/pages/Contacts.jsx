@@ -16,7 +16,9 @@ export default function Contacts({ onOpen }) {
 
   const cFrom = from ? new Date(from).setHours(0, 0, 0, 0) : 0;
   const cTo = to ? new Date(to).setHours(23, 59, 59, 999) : Infinity;
-  const stages = pipelines.find((p) => String(p.id) === pipe)?.stages || [];
+  const stages = pipe
+    ? (pipelines.find((p) => String(p.id) === pipe)?.stages || [])
+    : [...new Set(pipelines.flatMap((p) => p.stages || []))]; // semua tahap kalau pipeline belum dipilih
 
   const filtered = useMemo(() => rows.filter((c) =>
     ((c.name || '').toLowerCase().includes(qy.toLowerCase()) || c.wa_id.includes(qy))
@@ -56,7 +58,7 @@ export default function Contacts({ onOpen }) {
           <option value="">Semua pipeline</option>
           {pipelines.map((p) => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
         </select>
-        <select className="ct-select" value={stage} onChange={(e) => setStage(e.target.value)} disabled={!pipe}>
+        <select className="ct-select" value={stage} onChange={(e) => setStage(e.target.value)}>
           <option value="">Semua tahap</option>
           {stages.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
