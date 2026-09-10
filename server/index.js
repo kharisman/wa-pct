@@ -95,7 +95,8 @@ app.post('/webhook', (req, res) => {
           sendPushToAll({ title: '💬 ' + (profileName || m.from), body, wa_id: m.from }).catch((e) => console.error('push gagal', e.message));
           sendFcmToAll({ title: '💬 ' + (profileName || m.from), body, wa_id: m.from }).catch((e) => console.error('fcm gagal', e.message));
           const agent = before?.assignee || 'belum ada agen';
-          sendTelegram(`💬 Pesan masuk dari ${profileName || m.from} (${m.from})\nAgen: ${agent}\n\n${body}`);
+          const nomorTujuan = ch ? `${ch.label || 'Nomor'}${ch.phone_number ? ' (' + ch.phone_number + ')' : ''}` : 'tidak dikenal';
+          sendTelegram(`💬 Pesan masuk dari ${profileName || m.from} (${m.from})\nMasuk ke: ${nomorTujuan}\nAgen: ${agent}\n\n${body}`);
           // AI otomatis balas kalau nomor ini AI-nya aktif (cuma pesan teks) & belum diambil alih agen
           if (ch?.ai_enabled && m.type === 'text' && !before?.ai_off) {
             const wantsHuman = /\b(admin|agen|manusia|customer service|operator|petugas|cs)\b|orang\s*(asli|nya)|bicara\s+langsung|sambungk?an|hubungk?an ke|ke\s+admin|dengan\s+admin/i.test(body);
