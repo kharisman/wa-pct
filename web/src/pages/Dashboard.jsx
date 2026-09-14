@@ -64,12 +64,10 @@ export default function Dashboard({ onOpen, setNav }) {
       <div className="dash-head">
         <h1 className="page-title" style={{ margin: 0 }}>Dashboard</h1>
         <div className="dash-controls">
-          {channels.length > 1 && (
-            <select className="ct-select" value={chan} onChange={(e) => setChan(e.target.value)}>
-              <option value="">Semua nomor</option>
-              {channels.map((c) => <option key={c.id} value={String(c.id)}>{c.label || c.phone_number || ('Nomor ' + c.id)}</option>)}
-            </select>
-          )}
+          <select className="ct-select" value={chan} onChange={(e) => setChan(e.target.value)}>
+            <option value="">Semua nomor</option>
+            {channels.map((c) => <option key={c.id} value={String(c.id)}>{c.label || c.phone_number || ('Nomor ' + c.id)}</option>)}
+          </select>
           <div className="dash-tabs">
             {PERIODS.map(([k, label]) => (
               <button key={k} className={'dash-tab' + (period === k ? ' active' : '')} onClick={() => setPeriod(k)}>{label}</button>
