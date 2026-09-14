@@ -282,7 +282,9 @@ async function aiSystem() {
   const persona = (await getSetting('AI_SYSTEM')) || '';
   const funnel = parseFunnel(await getSetting('AI_FUNNEL')).map((s) => (s || '').trim()).filter(Boolean);
   const know = parseKnow(await getSetting('AI_KNOWLEDGE')).filter((k) => (k.body || '').trim());
-  let s = persona;
+  const BASE = 'Sifat dasar: kamu customer service PalComTech yang RAMAH, hangat, sabar, dan sopan — layani setiap orang dengan antusias. '
+    + 'Kalau pelanggan menanyakan soal kuliah (program studi, biaya, beasiswa, jadwal, kelas, dll), setelah menjawab, ARAHKAN dengan halus ke pendaftaran: tawarkan bantuan daftar, jelaskan langkah/alur pendaftaran, dan dorong menuju closing (mulai daftar sekarang) tanpa memaksa. Selalu tutup dengan ajakan langkah berikutnya.';
+  let s = persona ? BASE + '\n\n' + persona : BASE;
   if (funnel.length) s += '\n\nATURAN UTAMA setiap balasan:\n'
     + '1) JAWAB DULU pertanyaan pelanggan pakai fakta yang tersedia (lihat bagian FAKTA). Kalau pelanggan bertanya, prioritaskan menjawabnya lebih dulu.\n'
     + '2) SETELAH menjawab, baru ajukan SATU pertanyaan berikutnya sesuai alur di bawah — hanya info yang belum diketahui. Jangan tanya hal yang sudah dijawab pelanggan.\n'
