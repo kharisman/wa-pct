@@ -182,12 +182,10 @@ export default function Conversations({ me, active, setActive }) {
         <div className="conv-search">
           <input placeholder="🔍 Cari nama / nomor…" value={qy} onChange={(e) => setQy(e.target.value)} />
           <div className="conv-filters">
-            {channels.length > 1 && (
-              <select value={fChan} onChange={(e) => setFChan(e.target.value)}>
-                <option value="">Semua nomor</option>
-                {channels.map((c) => <option key={c.id} value={c.id}>📱 {c.label}</option>)}
-              </select>
-            )}
+            <select value={fChan} onChange={(e) => setFChan(e.target.value)}>
+              <option value="">Semua nomor</option>
+              {channels.map((c) => <option key={c.id} value={c.id}>📱 {c.label || c.phone_number || ('Nomor ' + c.id)}</option>)}
+            </select>
             <select value={fDate} onChange={(e) => setFDate(e.target.value)}>
               <option value="">Semua waktu</option>
               <option value="today">Hari ini</option>
