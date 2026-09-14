@@ -282,28 +282,56 @@ export const pipelineFunnel = async () => {
   }));
 };
 
-export const stats = async () => {
-  const dayAgo = Date.now() - 24 * 3600 * 1000;
-  const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+// Rentang waktu (ms) untuk periode dashboard
+function periodRange(period) {
+  const now = new Date();
+  const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
+  const DAY = 24 * 3600 * 1000;
+  if (period === 'today') return [midnight.getTime(), Date.now()];
+  if (period === 'yesterday') return [midnight.getTime() - DAY, midnight.getTime()];
+  if (period === 'month') return [Date.now() - 30 * DAY, Date.now()];
+  return [Date.now() - 7 * DAY, Date.now()]; // week (default)
+}
+
+export const stats = async (period = 'week') => {
+  const [from, to] = periodRange(period);
+  const now = Date.now();
   return (await q(`WITH seq AS (
       SELECT wa_id, direction, created_at,
              lead(direction)  OVER w AS next_dir,
              lead(created_at) OVER w AS next_at
       FROM messages
-      WHERE direction IN ('in','out') AND created_at > $2
+      WHERE direction IN ('in','out') AND created_at >= $1
       WINDOW w AS (PARTITION BY wa_id ORDER BY id)
     ), reply AS (
       SELECT (next_at - created_at) AS ms
-      FROM seq WHERE direction='in' AND next_dir='out' AND next_at >= created_at
+      FROM seq WHERE direction='in' AND next_dir='out' AND next_at >= created_at AND created_at <= $2
+    ), last_msg AS (
+      SELECT DISTINCT ON (wa_id) wa_id, direction, created_at
+      FROM messages WHERE direction IN ('in','out')
+      ORDER BY wa_id, id DESC
     )
     SELECT
     (SELECT count(*) FROM contacts)::int AS contacts,
     (SELECT count(*) FROM messages)::int AS messages,
-    (SELECT count(*) FROM messages WHERE direction='in'  AND created_at > $1)::int AS in24,
-    (SELECT count(*) FROM messages WHERE direction='out' AND created_at > $1)::int AS out24,
+    (SELECT count(*) FROM messages WHERE direction='in'  AND created_at BETWEEN $1 AND $2)::int AS incoming,
+    (SELECT count(*) FROM messages WHERE direction='out' AND created_at BETWEEN $1 AND $2)::int AS outgoing,
+    (SELECT count(DISTINCT wa_id) FROM messages WHERE created_at BETWEEN $1 AND $2)::int AS ongoing,
     (SELECT count(*) FROM contacts WHERE assignee IS NULL OR assignee='')::int AS unassigned,
-    (SELECT count(*) FROM reply)::int AS replied7,
+    (SELECT count(*) FROM last_msg WHERE direction='in')::int AS unanswered,
+    (SELECT $3::bigint - min(created_at) FROM last_msg WHERE direction='in')::bigint AS longest_await_ms,
+    (SELECT count(*) FROM reminders WHERE done=0)::int AS tasks_open,
+    (SELECT count(*) FROM reply)::int AS replied,
     (SELECT avg(ms) FROM reply)::bigint AS reply_avg_ms,
     (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY ms) FROM reply)::bigint AS reply_median_ms`,
-    [dayAgo, weekAgo])).rows[0];
+    [from, to, now])).rows[0];
+};
+
+// Pesan masuk per nomor (channel) dalam periode — buat "sumber"
+export const incomingByChannel = async (period = 'week') => {
+  const [from, to] = periodRange(period);
+  return (await q(`SELECT ch.label, count(*)::int AS n
+    FROM messages m LEFT JOIN channels ch ON ch.id=m.channel_id
+    WHERE m.direction='in' AND m.created_at BETWEEN $1 AND $2
+    GROUP BY ch.label ORDER BY n DESC`, [from, to])).rows;
 };

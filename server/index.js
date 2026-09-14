@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import {
   upsertContact, insertMessage, updateStatus,
-  listConversations, listMessages, searchWaIds, getContact, updateContact, setContactAiOff, initDb, stats, agentReport, pipelineFunnel,
+  listConversations, listMessages, searchWaIds, getContact, updateContact, setContactAiOff, initDb, stats, incomingByChannel, agentReport, pipelineFunnel,
   initTplMedia, setTplMedia, getTplMedia,
   initChannels, listChannels, getChannel, getChannelByPhone, createChannel, deleteChannel, setChannelAi, setChannelNumber,
   setContactChannel, q,
@@ -146,7 +146,10 @@ app.post('/api/fcm/register', async (req, res) => {
 });
 app.post('/api/fcm/unregister', async (req, res) => { await deleteFcmToken(req.body.token || ''); res.json({ ok: true }); });
 
-app.get('/api/stats', async (_req, res) => res.json(await stats()));
+app.get('/api/stats', async (req, res) => {
+  const period = req.query.period || 'week';
+  res.json({ ...(await stats(period)), by_channel: await incomingByChannel(period) });
+});
 app.get('/api/reports/agents', requireReports, async (_req, res) => res.json(await agentReport()));
 app.get('/api/reports/pipeline', requireReports, async (_req, res) => res.json(await pipelineFunnel()));
 app.get('/api/conversations', async (_req, res) => res.json(await listConversations()));
