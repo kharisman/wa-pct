@@ -148,7 +148,8 @@ app.post('/api/fcm/unregister', async (req, res) => { await deleteFcmToken(req.b
 
 app.get('/api/stats', async (req, res) => {
   const period = req.query.period || 'week';
-  res.json({ ...(await stats(period)), by_channel: await incomingByChannel(period) });
+  const channel = req.query.channel || null;
+  res.json({ ...(await stats(period, channel)), by_channel: await incomingByChannel(period) });
 });
 app.get('/api/reports/agents', requireReports, async (_req, res) => res.json(await agentReport()));
 app.get('/api/reports/pipeline', requireReports, async (_req, res) => res.json(await pipelineFunnel()));

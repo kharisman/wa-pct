@@ -17,16 +17,23 @@ const dur = (ms) => {
 
 export default function Dashboard({ onOpen, setNav }) {
   const [period, setPeriod] = useState('week');
+  const [chan, setChan] = useState(''); // '' = semua nomor
   const [s, setS] = useState(null);
   const [recent, setRecent] = useState([]);
   const [pipes, setPipes] = useState([]);
   const [rows, setRows] = useState([]);
+  const [channels, setChannels] = useState([]);
 
-  useEffect(() => { api('/stats?period=' + period).then(setS); }, [period]);
+  useEffect(() => { setS(null); api('/stats?period=' + period + (chan ? '&channel=' + chan : '')).then(setS); }, [period, chan]);
   useEffect(() => {
-    api('/conversations').then((c) => { setRows(c); setRecent(c.slice(0, 8)); });
+    api('/conversations').then((c) => setRows(c));
     api('/pipelines').then(setPipes);
+    api('/channels').then(setChannels);
   }, []);
+
+  // Chat terbaru & funnel ikut filter nomor
+  const scoped = useMemo(() => chan ? rows.filter((r) => String(r.channel_id) === chan) : rows, [rows, chan]);
+  useEffect(() => { setRecent(scoped.slice(0, 8)); }, [scoped]);
 
   // Funnel: hitung jumlah kontak per tahap pipeline pertama (client-side)
   const funnel = useMemo(() => {
@@ -35,11 +42,11 @@ export default function Dashboard({ onOpen, setNav }) {
     const firstId = pipes[0].id;
     const counts = p.stages.map((st) => ({
       stage: st,
-      n: rows.filter((r) => (r.pipeline_id || firstId) === p.id && (r.stage || p.stages[0]) === st).length,
+      n: scoped.filter((r) => (r.pipeline_id || firstId) === p.id && (r.stage || p.stages[0]) === st).length,
     }));
     const max = Math.max(1, ...counts.map((c) => c.n));
     return { name: p.name, counts, max };
-  }, [pipes, rows]);
+  }, [pipes, scoped]);
 
   const tiles = s ? [
     ['Pesan masuk', s.incoming, '📥', 'green'],
@@ -56,10 +63,18 @@ export default function Dashboard({ onOpen, setNav }) {
     <div className="page dash">
       <div className="dash-head">
         <h1 className="page-title" style={{ margin: 0 }}>Dashboard</h1>
-        <div className="dash-tabs">
-          {PERIODS.map(([k, label]) => (
-            <button key={k} className={'dash-tab' + (period === k ? ' active' : '')} onClick={() => setPeriod(k)}>{label}</button>
-          ))}
+        <div className="dash-controls">
+          {channels.length > 1 && (
+            <select className="ct-select" value={chan} onChange={(e) => setChan(e.target.value)}>
+              <option value="">Semua nomor</option>
+              {channels.map((c) => <option key={c.id} value={String(c.id)}>{c.label || c.phone_number || ('Nomor ' + c.id)}</option>)}
+            </select>
+          )}
+          <div className="dash-tabs">
+            {PERIODS.map(([k, label]) => (
+              <button key={k} className={'dash-tab' + (period === k ? ' active' : '')} onClick={() => setPeriod(k)}>{label}</button>
+            ))}
+          </div>
         </div>
       </div>
 

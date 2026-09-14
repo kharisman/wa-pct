@@ -293,38 +293,39 @@ function periodRange(period) {
   return [Date.now() - 7 * DAY, Date.now()]; // week (default)
 }
 
-export const stats = async (period = 'week') => {
+export const stats = async (period = 'week', channelId = null) => {
   const [from, to] = periodRange(period);
   const now = Date.now();
+  const ch = channelId ? Number(channelId) : null; // null = semua nomor
   return (await q(`WITH seq AS (
       SELECT wa_id, direction, created_at,
              lead(direction)  OVER w AS next_dir,
              lead(created_at) OVER w AS next_at
       FROM messages
-      WHERE direction IN ('in','out') AND created_at >= $1
+      WHERE direction IN ('in','out') AND created_at >= $1 AND ($4::int IS NULL OR channel_id = $4)
       WINDOW w AS (PARTITION BY wa_id ORDER BY id)
     ), reply AS (
       SELECT (next_at - created_at) AS ms
       FROM seq WHERE direction='in' AND next_dir='out' AND next_at >= created_at AND created_at <= $2
     ), last_msg AS (
       SELECT DISTINCT ON (wa_id) wa_id, direction, created_at
-      FROM messages WHERE direction IN ('in','out')
+      FROM messages WHERE direction IN ('in','out') AND ($4::int IS NULL OR channel_id = $4)
       ORDER BY wa_id, id DESC
     )
     SELECT
-    (SELECT count(*) FROM contacts)::int AS contacts,
-    (SELECT count(*) FROM messages)::int AS messages,
-    (SELECT count(*) FROM messages WHERE direction='in'  AND created_at BETWEEN $1 AND $2)::int AS incoming,
-    (SELECT count(*) FROM messages WHERE direction='out' AND created_at BETWEEN $1 AND $2)::int AS outgoing,
-    (SELECT count(DISTINCT wa_id) FROM messages WHERE created_at BETWEEN $1 AND $2)::int AS ongoing,
-    (SELECT count(*) FROM contacts WHERE assignee IS NULL OR assignee='')::int AS unassigned,
+    (SELECT count(*) FROM contacts WHERE ($4::int IS NULL OR channel_id = $4))::int AS contacts,
+    (SELECT count(*) FROM messages WHERE ($4::int IS NULL OR channel_id = $4))::int AS messages,
+    (SELECT count(*) FROM messages WHERE direction='in'  AND created_at BETWEEN $1 AND $2 AND ($4::int IS NULL OR channel_id = $4))::int AS incoming,
+    (SELECT count(*) FROM messages WHERE direction='out' AND created_at BETWEEN $1 AND $2 AND ($4::int IS NULL OR channel_id = $4))::int AS outgoing,
+    (SELECT count(DISTINCT wa_id) FROM messages WHERE created_at BETWEEN $1 AND $2 AND ($4::int IS NULL OR channel_id = $4))::int AS ongoing,
+    (SELECT count(*) FROM contacts WHERE (assignee IS NULL OR assignee='') AND ($4::int IS NULL OR channel_id = $4))::int AS unassigned,
     (SELECT count(*) FROM last_msg WHERE direction='in')::int AS unanswered,
     (SELECT $3::bigint - min(created_at) FROM last_msg WHERE direction='in')::bigint AS longest_await_ms,
-    (SELECT count(*) FROM reminders WHERE done=0)::int AS tasks_open,
+    (SELECT count(*) FROM reminders r WHERE r.done=0 AND ($4::int IS NULL OR EXISTS (SELECT 1 FROM contacts c WHERE c.wa_id=r.wa_id AND c.channel_id=$4)))::int AS tasks_open,
     (SELECT count(*) FROM reply)::int AS replied,
     (SELECT avg(ms) FROM reply)::bigint AS reply_avg_ms,
     (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY ms) FROM reply)::bigint AS reply_median_ms`,
-    [from, to, now])).rows[0];
+    [from, to, now, ch])).rows[0];
 };
 
 // Pesan masuk per nomor (channel) dalam periode — buat "sumber"
