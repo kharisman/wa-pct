@@ -284,11 +284,26 @@ export const pipelineFunnel = async () => {
 
 export const stats = async () => {
   const dayAgo = Date.now() - 24 * 3600 * 1000;
-  return (await q(`SELECT
+  const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+  return (await q(`WITH seq AS (
+      SELECT wa_id, direction, created_at,
+             lead(direction)  OVER w AS next_dir,
+             lead(created_at) OVER w AS next_at
+      FROM messages
+      WHERE direction IN ('in','out') AND created_at > $2
+      WINDOW w AS (PARTITION BY wa_id ORDER BY id)
+    ), reply AS (
+      SELECT (next_at - created_at) AS ms
+      FROM seq WHERE direction='in' AND next_dir='out' AND next_at >= created_at
+    )
+    SELECT
     (SELECT count(*) FROM contacts)::int AS contacts,
     (SELECT count(*) FROM messages)::int AS messages,
     (SELECT count(*) FROM messages WHERE direction='in'  AND created_at > $1)::int AS in24,
     (SELECT count(*) FROM messages WHERE direction='out' AND created_at > $1)::int AS out24,
-    (SELECT count(*) FROM contacts WHERE assignee IS NULL OR assignee='')::int AS unassigned`,
-    [dayAgo])).rows[0];
+    (SELECT count(*) FROM contacts WHERE assignee IS NULL OR assignee='')::int AS unassigned,
+    (SELECT count(*) FROM reply)::int AS replied7,
+    (SELECT avg(ms) FROM reply)::bigint AS reply_avg_ms,
+    (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY ms) FROM reply)::bigint AS reply_median_ms`,
+    [dayAgo, weekAgo])).rows[0];
 };

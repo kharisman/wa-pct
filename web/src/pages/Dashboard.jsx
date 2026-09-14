@@ -9,12 +9,23 @@ export default function Dashboard({ onOpen, setNav }) {
     api('/conversations').then((c) => setRecent(c.slice(0, 8)));
   }, []);
 
+  const dur = (ms) => {
+    if (ms == null) return '—';
+    const sec = Math.round(Number(ms) / 1000);
+    if (sec < 60) return sec + ' dtk';
+    const m = Math.round(sec / 60);
+    if (m < 60) return m + ' mnt';
+    const h = Math.floor(m / 60);
+    return h + ' j ' + (m % 60) + ' mnt';
+  };
   const cards = s ? [
     ['Total Kontak', s.contacts, '👥'],
     ['Total Pesan', s.messages, '✉️'],
     ['Masuk 24 jam', s.in24, '⬅️'],
     ['Keluar 24 jam', s.out24, '➡️'],
     ['Belum di-assign', s.unassigned, '🕓'],
+    ['Rata² balas (7 hr)', dur(s.reply_avg_ms), '⚡'],
+    ['Median balas (7 hr)', dur(s.reply_median_ms), '⏱️'],
   ] : [];
 
   return (
