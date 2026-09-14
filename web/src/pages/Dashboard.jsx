@@ -66,7 +66,7 @@ export default function Dashboard({ onOpen, setNav }) {
         <div className="dash-controls">
           <select className="ct-select" value={chan} onChange={(e) => setChan(e.target.value)}>
             <option value="">Semua nomor</option>
-            {channels.map((c) => <option key={c.id} value={String(c.id)}>{c.label || c.phone_number || ('Nomor ' + c.id)}</option>)}
+            {channels.map((c) => <option key={c.id} value={String(c.id)}>{c.phone_number || c.label || ('Nomor ' + c.id)}</option>)}
           </select>
           <div className="dash-tabs">
             {PERIODS.map(([k, label]) => (

@@ -184,7 +184,7 @@ export default function Conversations({ me, active, setActive }) {
           <div className="conv-filters">
             <select value={fChan} onChange={(e) => setFChan(e.target.value)}>
               <option value="">Semua nomor</option>
-              {channels.map((c) => <option key={c.id} value={c.id}>📱 {c.label || c.phone_number || ('Nomor ' + c.id)}</option>)}
+              {channels.map((c) => <option key={c.id} value={c.id}>📱 {c.phone_number || c.label || ('Nomor ' + c.id)}</option>)}
             </select>
             <select value={fDate} onChange={(e) => setFDate(e.target.value)}>
               <option value="">Semua waktu</option>
