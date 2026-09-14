@@ -283,7 +283,11 @@ async function aiSystem() {
   const funnel = parseFunnel(await getSetting('AI_FUNNEL')).map((s) => (s || '').trim()).filter(Boolean);
   const know = parseKnow(await getSetting('AI_KNOWLEDGE')).filter((k) => (k.body || '').trim());
   let s = persona;
-  if (funnel.length) s += '\n\nIKUTI ALUR PERCAKAPAN BERTAHAP ini urut. Kerjakan SATU langkah dulu, tanyakan info yang belum diketahui sebelum lanjut ke langkah berikutnya. Jangan langsung menjawab semua di awal:\n' + funnel.map((t, i) => `Langkah ${i + 1}: ${t}`).join('\n');
+  if (funnel.length) s += '\n\nATURAN UTAMA setiap balasan:\n'
+    + '1) JAWAB DULU pertanyaan pelanggan pakai fakta yang tersedia (lihat bagian FAKTA). Kalau pelanggan bertanya, prioritaskan menjawabnya lebih dulu.\n'
+    + '2) SETELAH menjawab, baru ajukan SATU pertanyaan berikutnya sesuai alur di bawah — hanya info yang belum diketahui. Jangan tanya hal yang sudah dijawab pelanggan.\n'
+    + '3) Satu langkah per balasan; jangan borong semua pertanyaan sekaligus.\n'
+    + 'Alur bertahap (urut):\n' + funnel.map((t, i) => `Langkah ${i + 1}: ${t}`).join('\n');
   if (know.length) s += '\n\nGUNAKAN HANYA FAKTA di bawah untuk jawaban spesifik (harga, program, syarat, jadwal). Kalau tidak ada di sini, JANGAN mengarang — bilang akan dicek/diteruskan ke admin:\n' + know.map((k) => `• ${k.title ? k.title + ': ' : ''}${k.body}`).join('\n');
   return s;
 }
