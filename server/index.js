@@ -150,7 +150,8 @@ app.post('/webhook', (req, res) => {
 /* ---- Form publik (tanpa login) ---- */
 app.get('/public/forms/:slug', async (req, res) => {
   const f = await getFormBySlug(req.params.slug);
-  f ? res.json(f) : res.status(404).json({ error: 'Form tidak ditemukan' });
+  if (!f) return res.status(404).json({ error: 'Form tidak ditemukan' });
+  res.json({ ...f, pipeline_id: undefined, fields: f.fields.map(({ answer, points, ...x }) => x) }); // kunci jawaban quiz jangan ikut
 });
 // Anti-spam: maks 200 kiriman / menit per IP (longgar: pengunjung expo bisa berbagi 1 IP wifi).
 // ponytail: counter di memori (hilang saat restart, 1 proses saja) — pindah ke DB/Redis kalau server >1 instance
@@ -179,7 +180,8 @@ async function formToContact(f, data) {
   await upsertContact(waId, (nameF && data[nameF.key]) || null, null);
   const c = await getContact(waId);
   const labels = [...new Set([...JSON.parse(c.labels || '[]'), 'Form: ' + f.title, ...(labelF && data[labelF.key] ? [data[labelF.key]] : [])])];
-  const answer = f.fields.filter((x) => x.type !== 'header').map((x) => `${x.label}: ${data[x.key] || '-'}`).join('\n');
+  const answer = f.fields.filter((x) => x.type !== 'header').map((x) => `${x.label}: ${data[x.key] || '-'}`).join('\n')
+    + (data._max ? `\nSkor quiz: ${data._score}/${data._max}` : '');
   const notes = [c.notes, `📝 ${f.title} (${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })})\n${answer}`].filter(Boolean).join('\n\n');
   const upd = { labels, notes };
   const pl = f.pipeline_id && (await listPipelines()).find((p) => p.id === f.pipeline_id);
@@ -187,6 +189,12 @@ async function formToContact(f, data) {
   await updateContact(waId, upd);
   if (!before && (await getSetting('AUTO_ASSIGN')) === '1') await assignRoundRobin(waId);
 }
+const CHOICE = ['select', 'radio']; // field pilihan (opsi harus salah satu dari daftar)
+// Quiz: jumlahkan poin soal yg jawabannya benar
+const quizScore = (fields, data) => {
+  const qs = fields.filter((x) => x.answer);
+  return { score: qs.reduce((s, x) => s + (data[x.key] === x.answer ? x.points || 1 : 0), 0), max: qs.reduce((s, x) => s + (x.points || 1), 0) };
+};
 app.post('/public/forms/:slug', async (req, res) => {
   const f = await getFormBySlug(req.params.slug);
   if (!f) return res.status(404).json({ error: 'Form tidak ditemukan' });
@@ -198,14 +206,17 @@ app.post('/public/forms/:slug', async (req, res) => {
     if (fl.type === 'header') continue; // judul bagian, bukan isian
     const v = String(req.body?.[fl.key] ?? '').trim().slice(0, 5000);
     if (fl.required && !v) return res.status(400).json({ error: `${fl.label} wajib diisi` });
-    if (v && fl.type === 'select' && !(fl.options || []).includes(v)) return res.status(400).json({ error: `${fl.label} tidak valid` });
+    if (v && CHOICE.includes(fl.type) && !(fl.options || []).includes(v)) return res.status(400).json({ error: `${fl.label} tidak valid` });
+    if (v && fl.type === 'rating' && !/^[1-5]$/.test(v)) return res.status(400).json({ error: `${fl.label} tidak valid` });
     if (v && fl.type === 'tel' && !toWaId(v)) return res.status(400).json({ error: `${fl.label} tidak valid` });
     if (v && fl.type === 'email' && !/^\S+@\S+\.\S+$/.test(v)) return res.status(400).json({ error: `${fl.label} tidak valid` });
     data[fl.key] = v;
   }
+  const sc = f.kind === 'quiz' ? quizScore(f.fields, data) : null;
+  if (sc) Object.assign(data, { _score: sc.score, _max: sc.max });
   await addFormResponse(f.id, data);
   try { await formToContact(f, data); } catch (e) { console.error('form → kontak gagal', e.message); } // jawaban tetap tersimpan
-  res.json({ ok: true });
+  res.json({ ok: true, ...(sc && f.show_score ? sc : {}) });
 });
 
 /* ---- API buat frontend ---- */
@@ -422,10 +433,14 @@ const cleanForm = (b) => {
   const fields = raw.map((x) => ({
     map: CONTACT_MAPS.includes(x.map) && !used.has(x.map) && used.add(x.map) ? x.map : undefined,
     key: x.key || `f${++n}`, label: String(x.label), type: x.type || 'text', required: !!x.required,
-    options: x.type === 'select' ? (x.options || []).map(String).filter(Boolean) : undefined,
+    options: CHOICE.includes(x.type) ? (x.options || []).map(String).filter(Boolean) : undefined,
+    // quiz: kunci jawaban + poin (cuma utk field pilihan, dan jawaban harus ada di opsi)
+    answer: b.kind === 'quiz' && CHOICE.includes(x.type) && (x.options || []).includes(x.answer) ? x.answer : undefined,
+    points: b.kind === 'quiz' && CHOICE.includes(x.type) && x.answer ? Math.max(1, Number(x.points) || 1) : undefined,
   }));
   const redirect = String(b.redirect_url || '').trim();
   return { title: b.title, description: b.description, fields, pipeline_id: Number(b.pipeline_id) || null,
+    kind: ['quiz', 'survey'].includes(b.kind) ? b.kind : 'form', show_score: b.show_score === false || b.show_score === 0 ? 0 : 1,
     success_message: String(b.success_message || '').trim() || null,
     redirect_url: /^https?:\/\//i.test(redirect) ? redirect : null }; // cuma http(s), cegah javascript: dll
 };

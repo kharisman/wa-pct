@@ -2,7 +2,16 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { api, post, patch } from '../api.js';
 
-const TYPES = [['text', 'Teks singkat'], ['textarea', 'Paragraf'], ['number', 'Angka'], ['email', 'Email'], ['tel', 'No. HP'], ['date', 'Tanggal'], ['select', 'Pilihan'], ['header', '— Judul bagian —']];
+const TYPES = [['text', 'Teks singkat'], ['textarea', 'Paragraf'], ['number', 'Angka'], ['email', 'Email'], ['tel', 'No. HP'], ['date', 'Tanggal'], ['select', 'Dropdown'], ['radio', 'Pilihan ganda'], ['rating', 'Rating 1–5'], ['header', '— Judul bagian —']];
+const CHOICE = ['select', 'radio'];
+// Satu builder dipakai 3 menu: Form, Quiz, Survei
+const KINDS = {
+  form: { title: 'Form', noun: 'Form', icon: '📝', desc: 'Buat form dengan field sendiri, lalu bagikan link atau QR-nya. Siapa pun bisa mengisi tanpa login.' },
+  quiz: { title: 'Quiz', noun: 'Quiz', icon: '🏆', desc: 'Soal pilihan ganda dengan kunci jawaban & poin. Skor dihitung otomatis dan bisa ditampilkan ke peserta.' },
+  survey: { title: 'Survei', noun: 'Survei', icon: '📊', desc: 'Kumpulkan pendapat dengan rating & pilihan ganda. Hasil langsung diringkas dalam grafik.' },
+};
+const newQuestion = (kind) => (kind === 'quiz' ? { label: '', type: 'radio', options: [], required: true, points: 1 }
+  : kind === 'survey' ? { label: '', type: 'rating', required: true } : { label: '', type: 'text', required: false });
 const inputs = (fields) => fields.filter((x) => x.type !== 'header');
 // Field bawaan yg terhubung ke data kontak (isian otomatis masuk ke kontak)
 const CONTACT_FIELDS = [
@@ -13,7 +22,40 @@ const CONTACT_FIELDS = [
 ];
 const MAP_TAG = Object.fromEntries(CONTACT_FIELDS.map((c) => [c.map, c.tag]));
 const contactField = (map) => { const { tag, ...x } = CONTACT_FIELDS.find((c) => c.map === map); return { ...x }; };
-const blank = () => ({ title: '', description: '', success_message: '', redirect_url: '', fields: [contactField('name'), contactField('phone')] });
+const blank = (kind) => ({ kind, show_score: 1, title: '', description: '', success_message: '', redirect_url: '', fields: [contactField('name'), contactField('phone'), ...(kind === 'form' ? [] : [newQuestion(kind)])] });
+
+// Ringkasan jawaban utk field pilihan & rating (survei/quiz)
+function Summary({ form, rows }) {
+  const qs = inputs(form.fields).filter((x) => CHOICE.includes(x.type) || x.type === 'rating');
+  if (!qs.length || !rows.length) return null;
+  const scored = rows.filter((r) => r.data._max);
+  return (
+    <div className="fm-summary">
+      {scored.length > 0 && (
+        <div className="fm-sum-card"><h4>Rata-rata skor</h4>
+          <div className="fm-big">{(scored.reduce((s, r) => s + r.data._score / r.data._max, 0) / scored.length * 100).toFixed(0)}<small>/100</small></div>
+          <p className="muted">{scored.length} peserta</p></div>
+      )}
+      {qs.map((x) => {
+        const vals = rows.map((r) => r.data[x.key]).filter(Boolean);
+        const opts = x.type === 'rating' ? ['5', '4', '3', '2', '1'] : x.options || [];
+        const count = (o) => vals.filter((v) => v === o).length;
+        return (
+          <div key={x.key} className="fm-sum-card"><h4>{x.label}</h4>
+            {x.type === 'rating' && vals.length > 0 && <div className="fm-big">{(vals.reduce((s, v) => s + Number(v), 0) / vals.length).toFixed(1)}<small> ★ dari 5</small></div>}
+            {opts.map((o) => (
+              <div key={o} className={'fm-bar' + (o === x.answer ? ' ok' : '')}>
+                <span className="fm-bar-label">{x.type === 'rating' ? '★'.repeat(Number(o)) : o}{o === x.answer && ' ✓'}</span>
+                <span className="fm-bar-track"><span style={{ width: `${vals.length ? (count(o) / vals.length) * 100 : 0}%` }} /></span>
+                <span className="fm-bar-n">{count(o)}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 let base = ''; // domain share form dari setting; kosong = domain CRM
 const link = (slug) => `${base || location.origin}/f/${slug}`;
 const fmtTime = (t) => new Date(Number(t)).toLocaleString('id-ID');
@@ -36,7 +78,8 @@ function QrModal({ form, onClose }) {
   );
 }
 
-export default function Forms() {
+export default function Forms({ kind = 'form' }) {
+  const K = KINDS[kind];
   const [rows, setRows] = useState([]);
   const [f, setF] = useState(null); // form yang sedang diedit (tanpa id = baru)
   const [resp, setResp] = useState(null); // { form, rows }
@@ -48,7 +91,7 @@ export default function Forms() {
   const [over, setOver] = useState(null);
   const [baseEdit, setBaseEdit] = useState(null); // null = tidak sedang edit domain
   const [, rerender] = useState(0);
-  const load = () => api('/forms').then(setRows);
+  const load = () => api('/forms').then((all) => setRows(all.filter((r) => (r.kind || 'form') === kind)));
   useEffect(() => { load(); api('/pipelines').then(setPipes); api('/form-base').then((d) => { base = d.url; rerender((n) => n + 1); }); }, []);
   const saveBase = async () => {
     const res = await post('/form-base', { url: baseEdit });
@@ -73,8 +116,9 @@ export default function Forms() {
   const csv = () => {
     const { form, rows: rs } = resp;
     const esc = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`;
-    const lines = [['Waktu', ...inputs(form.fields).map((x) => x.label)].map(esc).join(','),
-      ...rs.map((r) => [fmtTime(r.created_at), ...inputs(form.fields).map((x) => r.data[x.key])].map(esc).join(','))];
+    const quiz = form.kind === 'quiz';
+    const lines = [['Waktu', ...inputs(form.fields).map((x) => x.label), ...(quiz ? ['Skor'] : [])].map(esc).join(','),
+      ...rs.map((r) => [fmtTime(r.created_at), ...inputs(form.fields).map((x) => r.data[x.key]), ...(quiz ? [`${r.data._score ?? ''}/${r.data._max ?? ''}`] : [])].map(esc).join(','))];
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], { type: 'text/csv' }));
     a.download = `${form.title}.csv`; a.click();
@@ -88,12 +132,13 @@ export default function Forms() {
           <p className="muted">{resp.rows.length} jawaban</p></div>
         <button className="fm-btn primary" onClick={csv} disabled={!resp.rows.length}>⬇ Download CSV</button>
       </div>
+      <Summary form={resp.form} rows={resp.rows} />
       <div className="card fm-table">
         {resp.rows.length ? (
           <table>
-            <thead><tr><th>Waktu</th>{inputs(resp.form.fields).map((x) => <th key={x.key}>{x.label}</th>)}</tr></thead>
+            <thead><tr><th>Waktu</th>{resp.form.kind === 'quiz' && <th>Skor</th>}{inputs(resp.form.fields).map((x) => <th key={x.key}>{x.label}</th>)}</tr></thead>
             <tbody>{resp.rows.map((r) => (
-              <tr key={r.id}><td className="fm-time">{fmtTime(r.created_at)}</td>{inputs(resp.form.fields).map((x) => <td key={x.key}>{r.data[x.key]}</td>)}</tr>
+              <tr key={r.id}><td className="fm-time">{fmtTime(r.created_at)}</td>{resp.form.kind === 'quiz' && <td><b>{r.data._score ?? '-'}</b>/{r.data._max ?? '-'}</td>}{inputs(resp.form.fields).map((x) => <td key={x.key}>{r.data[x.key]}</td>)}</tr>
             ))}</tbody>
           </table>
         ) : <div className="fm-empty">📭<p>Belum ada jawaban. Bagikan link atau QR form-nya dulu.</p></div>}
@@ -106,7 +151,7 @@ export default function Forms() {
     <div className="page">
       <div className="fm-head">
         <div><button className="fm-back" onClick={() => { setF(null); setErr(''); }}>← Semua form</button>
-          <h1 className="page-title">{f.id ? 'Edit Form' : 'Form Baru'}</h1></div>
+          <h1 className="page-title">{f.id ? `Edit ${K.noun}` : `${K.noun} Baru`}</h1></div>
       </div>
       <form onSubmit={save} className="fm-editor">
         <section className="card">
@@ -146,7 +191,17 @@ export default function Forms() {
                     <select value={x.type} disabled={!!x.map} title={x.map ? 'Tipe field kontak tidak bisa diubah' : undefined} onChange={(e) => setField(i, { type: e.target.value })}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                   </div>
                   {x.map && <span className="fm-maptag">🔗 Masuk ke kontak: <b>{MAP_TAG[x.map]}</b>{x.map === 'label' && ' (pilihan pengisi jadi label kontak)'}</span>}
-                  {x.type === 'select' && <textarea rows={3} placeholder={'Pilihan, satu per baris\nmis. Informatika\nSistem Informasi'} value={(x.options || []).join('\n')} onChange={(e) => setField(i, { options: e.target.value.split('\n') })} />}
+                  {CHOICE.includes(x.type) && <textarea rows={3} placeholder={'Pilihan, satu per baris\nmis. Informatika\nSistem Informasi'} value={(x.options || []).join('\n')} onChange={(e) => setField(i, { options: e.target.value.split('\n') })} />}
+                  {kind === 'quiz' && CHOICE.includes(x.type) && !x.map && (
+                    <div className="fm-answer">
+                      <label>Jawaban benar
+                        <select value={x.answer || ''} onChange={(e) => setField(i, { answer: e.target.value })}>
+                          <option value="">— bukan soal (tidak dinilai) —</option>
+                          {(x.options || []).filter(Boolean).map((o) => <option key={o}>{o}</option>)}
+                        </select></label>
+                      {x.answer && <label>Poin<input type="number" min={1} value={x.points || 1} onChange={(e) => setField(i, { points: e.target.value })} /></label>}
+                    </div>
+                  )}
                   <div className="fm-field-foot">
                     {x.type !== 'header' ? <label className="fm-check"><input type="checkbox" checked={x.required} onChange={(e) => setField(i, { required: e.target.checked })} /> Wajib diisi</label> : <span />}
                     <span className="fm-field-tools">
@@ -160,13 +215,14 @@ export default function Forms() {
             ))}
           </div>
           <div className="fm-add">
-            <button type="button" className="fm-btn" onClick={() => setF({ ...f, fields: [...f.fields, { label: '', type: 'text', required: false }] })}>+ Field</button>
+            <button type="button" className="fm-btn" onClick={() => setF({ ...f, fields: [...f.fields, newQuestion(kind)] })}>{kind === 'quiz' ? '+ Soal' : kind === 'survey' ? '+ Pertanyaan' : '+ Field'}</button>
             <button type="button" className="fm-btn" onClick={() => setF({ ...f, fields: [...f.fields, { label: '', type: 'header', required: false }] })}>+ Judul bagian</button>
           </div>
         </section>
 
         <section className="card">
           <h2>Halaman setelah submit</h2>
+          {kind === 'quiz' && <label className="fm-check" style={{ marginBottom: 12 }}><input type="checkbox" checked={!!f.show_score} onChange={(e) => setF({ ...f, show_score: e.target.checked ? 1 : 0 })} /> Tampilkan skor ke peserta setelah submit</label>}
           <div className="field"><label>Pesan terima kasih</label>
             <textarea rows={3} value={f.success_message || ''} placeholder="Terima kasih, jawaban kamu sudah terkirim. Tim kami akan segera menghubungi via WhatsApp 🙏" onChange={(e) => setF({ ...f, success_message: e.target.value })} /></div>
           <div className="field"><label>Arahkan ke link (opsional)</label>
@@ -177,7 +233,7 @@ export default function Forms() {
         <div className="fm-savebar">
           {err && <span className="err">{err}</span>}
           <button type="button" className="link" onClick={() => { setF(null); setErr(''); }}>Batal</button>
-          <button className="fm-btn primary">Simpan form</button>
+          <button className="fm-btn primary">Simpan {K.noun.toLowerCase()}</button>
         </div>
       </form>
     </div>
@@ -187,9 +243,9 @@ export default function Forms() {
   return (
     <div className="page">
       <div className="fm-head">
-        <div><h1 className="page-title">Form</h1>
-          <p className="muted">Buat form dengan field sendiri, lalu bagikan link atau QR-nya. Siapa pun bisa mengisi tanpa login.</p></div>
-        <button className="fm-btn primary" onClick={() => setF(blank())}>+ Form baru</button>
+        <div><h1 className="page-title">{K.title}</h1>
+          <p className="muted">{K.desc}</p></div>
+        <button className="fm-btn primary" onClick={() => setF(blank(kind))}>+ {K.noun} baru</button>
       </div>
       <div className="fm-domain">
         <span>🌐 Domain link share:</span>
@@ -202,7 +258,7 @@ export default function Forms() {
         )}
       </div>
       {!rows.length ? (
-        <div className="card fm-empty">📝<p>Belum ada form. Klik <b>+ Form baru</b> untuk mulai.</p></div>
+        <div className="card fm-empty">{K.icon}<p>Belum ada {K.noun.toLowerCase()}. Klik <b>+ {K.noun} baru</b> untuk mulai.</p></div>
       ) : (
         <div className="fm-grid">
           {rows.map((r) => (
@@ -211,7 +267,7 @@ export default function Forms() {
                 <h3>{r.title}</h3>
                 {r.description && <p>{r.description}</p>}
                 <div className="fm-stats">
-                  <span><b>{inputs(r.fields).length}</b> field</span>
+                  <span><b>{inputs(r.fields).filter((x) => kind !== 'quiz' || x.answer).length}</b> {kind === 'quiz' ? 'soal' : kind === 'survey' ? 'pertanyaan' : 'field'}</span>
                   <span><b>{r.responses}</b> jawaban</span>
                 </div>
               </div>
@@ -220,7 +276,7 @@ export default function Forms() {
                 <button className="fm-mini" onClick={() => share(r.slug)}>{copied === r.slug ? '✓ Tersalin' : 'Salin'}</button>
               </div>
               <div className="fm-card-actions">
-                <button className="fm-btn primary" onClick={() => openResp(r)}>Jawaban</button>
+                <button className="fm-btn primary" onClick={() => openResp(r)}>{kind === 'form' ? 'Jawaban' : 'Hasil'}</button>
                 <button className="fm-btn" onClick={() => setQr(r)}>QR</button>
                 <a className="fm-btn" href={link(r.slug)} target="_blank" rel="noreferrer">Buka</a>
                 <button className="fm-btn" onClick={() => setF(r)}>Edit</button>

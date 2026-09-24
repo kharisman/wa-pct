@@ -534,3 +534,33 @@ h2 .fm-hint { display: inline; margin-left: 8px; }
 .fm-domain { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -8px 0 16px; font-size: 13px; color: #6b7394; }
 .fm-domain b { color: var(--navy); }
 .fm-domain input { flex: 1; min-width: 240px; padding: 7px 10px; border: 1px solid #d9deef; border-radius: 8px; font: inherit; }
+
+/* quiz & survei */
+.fm-answer { display: flex; gap: 10px; flex-wrap: wrap; padding: 8px 10px; background: #fff8dc; border-radius: 8px; }
+.fm-answer label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #6b5a12; }
+.fm-answer select { width: auto !important; min-width: 180px; }
+.fm-answer input { width: 70px !important; }
+.fm-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.fm-sum-card { background: #fff; border: 1px solid #e3e7f3; border-radius: 12px; padding: 14px 16px; }
+.fm-sum-card h4 { margin: 0 0 10px; font-size: 14px; color: var(--navy); }
+.fm-sum-card .muted { margin: 0; font-size: 12px; }
+.fm-big { font-size: 30px; font-weight: 800; color: var(--navy); margin-bottom: 8px; }
+.fm-big small { font-size: 13px; font-weight: 500; color: #8a91ad; }
+.fm-bar { display: grid; grid-template-columns: minmax(70px, 40%) 1fr 32px; align-items: center; gap: 8px; font-size: 12px; margin: 5px 0; }
+.fm-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4a5378; }
+.fm-bar.ok .fm-bar-label { color: #1f9d55; font-weight: 700; }
+.fm-bar-track { height: 10px; background: #f0f2f8; border-radius: 5px; overflow: hidden; }
+.fm-bar-track span { display: block; height: 100%; background: var(--navy); border-radius: 5px; }
+.fm-bar.ok .fm-bar-track span { background: #1f9d55; }
+.fm-bar-n { text-align: right; font-weight: 700; color: var(--navy); }
+.pf-radios { display: flex; flex-direction: column; gap: 8px; }
+.pf-radio { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border: 1px solid #d9deef; border-radius: 10px; cursor: pointer; font-weight: 400 !important; }
+.pf-radio.on { border-color: var(--navy); background: #eef1fb; }
+.pf-radio input { accent-color: var(--navy); width: 18px; height: 18px; margin: 0; }
+.pf-stars { display: flex; gap: 6px; }
+.pf-stars button { border: 0; background: none; font-size: 34px; line-height: 1; color: #d9deef; cursor: pointer; padding: 0 2px; }
+.pf-stars button.on { color: var(--gold); }
+.pf-score { margin: 16px auto 0; display: inline-flex; flex-direction: column; align-items: center; padding: 14px 28px; background: #eef1fb; border-radius: 14px; }
+.pf-score small { color: #6b7394; }
+.pf-score b { font-size: 40px; color: var(--navy); line-height: 1.1; }
+.pf-score span { color: #6b7394; font-size: 13px; }

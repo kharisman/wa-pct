@@ -120,7 +120,7 @@ export default function Shell({ me, onLogout }) {
     ...(can('agents') ? [['agents', '🧑‍💼', 'Agen']] : []),
     ...(can('templates') ? [['templates', '📄', 'Template']] : []),
     ...(can('quick') ? [['quick', '⚡', 'Balasan Cepat']] : []),
-    ...(can('forms') ? [['forms', '📝', 'Form']] : []),
+    ...(can('forms') ? [['forms', '📝', 'Form'], ['quiz', '🏆', 'Quiz'], ['survey', '📊', 'Survei']] : []),
     ...(can('channels') ? [['channels', '📱', 'Nomor']] : []),
     ...(can('settings') ? [['settings', '⚙️', 'Setting']] : []),
   ];
@@ -175,7 +175,9 @@ export default function Shell({ me, onLogout }) {
         {nav === 'agents' && <Agents me={me} />}
         {nav === 'templates' && <Templates />}
         {nav === 'quick' && <QuickReplies />}
-        {nav === 'forms' && <Forms />}
+        {nav === 'forms' && <Forms key="form" kind="form" />}
+        {nav === 'quiz' && <Forms key="quiz" kind="quiz" />}
+        {nav === 'survey' && <Forms key="survey" kind="survey" />}
         {nav === 'channels' && <Channels />}
         {nav === 'settings' && <Settings />}
       </main>
