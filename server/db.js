@@ -343,17 +343,19 @@ export async function initForms() {
   await q('CREATE TABLE IF NOT EXISTS forms (id serial PRIMARY KEY, slug text UNIQUE NOT NULL, title text NOT NULL, description text, fields jsonb NOT NULL, created_at bigint NOT NULL)');
   await q('CREATE TABLE IF NOT EXISTS form_responses (id serial PRIMARY KEY, form_id int NOT NULL REFERENCES forms(id) ON DELETE CASCADE, data jsonb NOT NULL, created_at bigint NOT NULL)');
   await q('ALTER TABLE forms ADD COLUMN IF NOT EXISTS pipeline_id int'); // isian masuk ke pipeline ini
+  await q('ALTER TABLE forms ADD COLUMN IF NOT EXISTS success_message text'); // halaman akhir setelah submit
+  await q('ALTER TABLE forms ADD COLUMN IF NOT EXISTS redirect_url text');
   await q('ALTER TABLE forms ENABLE ROW LEVEL SECURITY');
   await q('ALTER TABLE form_responses ENABLE ROW LEVEL SECURITY');
 }
 export const listForms = async () =>
-  (await q('SELECT f.id, f.slug, f.title, f.description, f.fields, f.pipeline_id, (SELECT count(*)::int FROM form_responses r WHERE r.form_id=f.id) AS responses FROM forms f ORDER BY f.id DESC')).rows;
+  (await q('SELECT f.id, f.slug, f.title, f.description, f.fields, f.pipeline_id, f.success_message, f.redirect_url, (SELECT count(*)::int FROM form_responses r WHERE r.form_id=f.id) AS responses FROM forms f ORDER BY f.id DESC')).rows;
 export const getFormBySlug = async (slug) =>
-  (await q('SELECT id, slug, title, description, fields, pipeline_id FROM forms WHERE slug=$1', [slug])).rows[0];
-export const createForm = async ({ slug, title, description, fields, pipeline_id }) =>
-  (await q('INSERT INTO forms(slug,title,description,fields,pipeline_id,created_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', [slug, title, description || '', JSON.stringify(fields), pipeline_id || null, Date.now()])).rows[0].id;
-export const updateForm = (id, { title, description, fields, pipeline_id }) =>
-  q('UPDATE forms SET title=$1, description=$2, fields=$3, pipeline_id=$4 WHERE id=$5', [title, description || '', JSON.stringify(fields), pipeline_id || null, id]);
+  (await q('SELECT id, slug, title, description, fields, pipeline_id, success_message, redirect_url FROM forms WHERE slug=$1', [slug])).rows[0];
+export const createForm = async ({ slug, title, description, fields, pipeline_id, success_message, redirect_url }) =>
+  (await q('INSERT INTO forms(slug,title,description,fields,pipeline_id,success_message,redirect_url,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', [slug, title, description || '', JSON.stringify(fields), pipeline_id || null, success_message, redirect_url, Date.now()])).rows[0].id;
+export const updateForm = (id, { title, description, fields, pipeline_id, success_message, redirect_url }) =>
+  q('UPDATE forms SET title=$1, description=$2, fields=$3, pipeline_id=$4, success_message=$5, redirect_url=$6 WHERE id=$7', [title, description || '', JSON.stringify(fields), pipeline_id || null, success_message, redirect_url, id]);
 export const deleteForm = (id) => q('DELETE FROM forms WHERE id=$1', [id]);
 export const addFormResponse = (formId, data) =>
   q('INSERT INTO form_responses(form_id,data,created_at) VALUES($1,$2,$3)', [formId, JSON.stringify(data), Date.now()]);

@@ -407,7 +407,10 @@ const cleanForm = (b) => {
     key: x.key || `f${++n}`, label: String(x.label), type: x.type || 'text', required: !!x.required,
     options: x.type === 'select' ? (x.options || []).map(String).filter(Boolean) : undefined,
   }));
-  return { title: b.title, description: b.description, fields, pipeline_id: Number(b.pipeline_id) || null };
+  const redirect = String(b.redirect_url || '').trim();
+  return { title: b.title, description: b.description, fields, pipeline_id: Number(b.pipeline_id) || null,
+    success_message: String(b.success_message || '').trim() || null,
+    redirect_url: /^https?:\/\//i.test(redirect) ? redirect : null }; // cuma http(s), cegah javascript: dll
 };
 app.get('/api/forms', requireCap('forms'), async (_req, res) => res.json(await listForms()));
 app.post('/api/forms', requireCap('forms'), async (req, res) => {
