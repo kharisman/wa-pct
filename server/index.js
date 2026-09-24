@@ -157,14 +157,15 @@ const toWaId = (s) => {
 };
 // Isian form → kontak (+ masuk pipeline form, + catatan berisi jawaban)
 async function formToContact(f, data) {
-  const tel = f.fields.find((x) => x.type === 'tel');
+  const tel = f.fields.find((x) => x.map === 'phone') || f.fields.find((x) => x.type === 'tel');
   const waId = tel && toWaId(data[tel.key]);
   if (!waId) return;
-  const nameF = f.fields.find((x) => /nama|name/i.test(x.label));
+  const nameF = f.fields.find((x) => x.map === 'name') || f.fields.find((x) => /nama|name/i.test(x.label));
+  const labelF = f.fields.find((x) => x.map === 'label');
   const before = await getContact(waId);
   await upsertContact(waId, (nameF && data[nameF.key]) || null, null);
   const c = await getContact(waId);
-  const labels = [...new Set([...JSON.parse(c.labels || '[]'), 'Form: ' + f.title])];
+  const labels = [...new Set([...JSON.parse(c.labels || '[]'), 'Form: ' + f.title, ...(labelF && data[labelF.key] ? [data[labelF.key]] : [])])];
   const answer = f.fields.filter((x) => x.type !== 'header').map((x) => `${x.label}: ${data[x.key] || '-'}`).join('\n');
   const notes = [c.notes, `📝 ${f.title} (${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })})\n${answer}`].filter(Boolean).join('\n\n');
   const upd = { labels, notes };
@@ -399,11 +400,14 @@ app.delete('/api/quick-replies/:id', requireCap('quick'), async (req, res) => {
 });
 
 // ===== Form builder =====
+const CONTACT_MAPS = ['name', 'phone', 'label', 'notes']; // field form yg terhubung ke data kontak
 const cleanForm = (b) => {
   const raw = (Array.isArray(b.fields) ? b.fields : []).filter((x) => x?.label);
   // key baru = angka terbesar + 1, supaya field yg dipindah/ditambah tak bentrok dgn key lama (jawaban lama tetap nyambung)
   let n = Math.max(0, ...raw.map((x) => Number(/^f(\d+)$/.exec(x.key || '')?.[1]) || 0));
+  const used = new Set();
   const fields = raw.map((x) => ({
+    map: CONTACT_MAPS.includes(x.map) && !used.has(x.map) && used.add(x.map) ? x.map : undefined,
     key: x.key || `f${++n}`, label: String(x.label), type: x.type || 'text', required: !!x.required,
     options: x.type === 'select' ? (x.options || []).map(String).filter(Boolean) : undefined,
   }));

@@ -4,7 +4,16 @@ import { api, post, patch } from '../api.js';
 
 const TYPES = [['text', 'Teks singkat'], ['textarea', 'Paragraf'], ['number', 'Angka'], ['email', 'Email'], ['tel', 'No. HP'], ['date', 'Tanggal'], ['select', 'Pilihan'], ['header', '— Judul bagian —']];
 const inputs = (fields) => fields.filter((x) => x.type !== 'header');
-const blank = () => ({ title: '', description: '', success_message: '', redirect_url: '', fields: [{ label: '', type: 'text', required: false }] });
+// Field bawaan yg terhubung ke data kontak (isian otomatis masuk ke kontak)
+const CONTACT_FIELDS = [
+  { map: 'name', label: 'Nama lengkap', type: 'text', required: true, tag: 'Nama' },
+  { map: 'phone', label: 'No. WhatsApp', type: 'tel', required: true, tag: 'No. WhatsApp' },
+  { map: 'label', label: 'Program yang diminati', type: 'select', required: false, options: [], tag: 'Label' },
+  { map: 'notes', label: 'Pesan / pertanyaan', type: 'textarea', required: false, tag: 'Catatan' },
+];
+const MAP_TAG = Object.fromEntries(CONTACT_FIELDS.map((c) => [c.map, c.tag]));
+const contactField = (map) => { const { tag, ...x } = CONTACT_FIELDS.find((c) => c.map === map); return { ...x }; };
+const blank = () => ({ title: '', description: '', success_message: '', redirect_url: '', fields: [contactField('name'), contactField('phone')] });
 const link = (slug) => `${location.origin}/f/${slug}`;
 const fmtTime = (t) => new Date(Number(t)).toLocaleString('id-ID');
 
@@ -99,12 +108,20 @@ export default function Forms() {
             <select value={f.pipeline_id || ''} onChange={(e) => setF({ ...f, pipeline_id: e.target.value })}>
               <option value="">— tidak —</option>{pipes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-            <small className="fm-hint">Form dengan field <b>No. HP</b> otomatis membuat kontak (label "Form: judul", jawaban masuk catatan). Field berlabel "Nama" jadi nama kontak.</small>
+            <small className="fm-hint">Pakai field kontak <b>No. WhatsApp</b> supaya pengisi otomatis jadi kontak (label "Form: judul", semua jawaban masuk catatan).</small>
           </div>
         </section>
 
         <section className="card">
           <h2>Field <small className="fm-hint">seret ⠿ untuk mengatur urutan</small></h2>
+          <div className="fm-presets">
+            <span>Field kontak:</span>
+            {CONTACT_FIELDS.map((c) => {
+              const has = f.fields.some((x) => x.map === c.map);
+              return <button type="button" key={c.map} className="fm-chip" disabled={has} title={has ? 'Sudah dipakai' : 'Tambah field ' + c.tag}
+                onClick={() => setF({ ...f, fields: [...f.fields, contactField(c.map)] })}>{has ? '✓' : '+'} {c.tag}</button>;
+            })}
+          </div>
           <div className="fm-fields">
             {f.fields.map((x, i) => (
               <div key={i} className={'fm-field' + (x.type === 'header' ? ' is-header' : '') + (over === i && drag !== null && drag !== i ? ' drop' : '')}
@@ -117,8 +134,9 @@ export default function Forms() {
                 <div className="fm-field-body">
                   <div className="fm-field-row">
                     <input required placeholder={x.type === 'header' ? 'Judul bagian, mis. Data Orang Tua' : 'Label, mis. Nama lengkap'} value={x.label} onChange={(e) => setField(i, { label: e.target.value })} />
-                    <select value={x.type} onChange={(e) => setField(i, { type: e.target.value })}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                    <select value={x.type} disabled={!!x.map} title={x.map ? 'Tipe field kontak tidak bisa diubah' : undefined} onChange={(e) => setField(i, { type: e.target.value })}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                   </div>
+                  {x.map && <span className="fm-maptag">🔗 Masuk ke kontak: <b>{MAP_TAG[x.map]}</b>{x.map === 'label' && ' (pilihan pengisi jadi label kontak)'}</span>}
                   {x.type === 'select' && <textarea rows={3} placeholder={'Pilihan, satu per baris\nmis. Informatika\nSistem Informasi'} value={(x.options || []).join('\n')} onChange={(e) => setField(i, { options: e.target.value.split('\n') })} />}
                   <div className="fm-field-foot">
                     {x.type !== 'header' ? <label className="fm-check"><input type="checkbox" checked={x.required} onChange={(e) => setField(i, { required: e.target.checked })} /> Wajib diisi</label> : <span />}
