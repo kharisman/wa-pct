@@ -14,7 +14,8 @@ const CONTACT_FIELDS = [
 const MAP_TAG = Object.fromEntries(CONTACT_FIELDS.map((c) => [c.map, c.tag]));
 const contactField = (map) => { const { tag, ...x } = CONTACT_FIELDS.find((c) => c.map === map); return { ...x }; };
 const blank = () => ({ title: '', description: '', success_message: '', redirect_url: '', fields: [contactField('name'), contactField('phone')] });
-const link = (slug) => `${location.origin}/f/${slug}`;
+let base = ''; // domain share form dari setting; kosong = domain CRM
+const link = (slug) => `${base || location.origin}/f/${slug}`;
 const fmtTime = (t) => new Date(Number(t)).toLocaleString('id-ID');
 
 function QrModal({ form, onClose }) {
@@ -45,8 +46,16 @@ export default function Forms() {
   const [pipes, setPipes] = useState([]);
   const [drag, setDrag] = useState(null); // index field yg sedang di-drag (lewat handle ⠿)
   const [over, setOver] = useState(null);
+  const [baseEdit, setBaseEdit] = useState(null); // null = tidak sedang edit domain
+  const [, rerender] = useState(0);
   const load = () => api('/forms').then(setRows);
-  useEffect(() => { load(); api('/pipelines').then(setPipes); }, []);
+  useEffect(() => { load(); api('/pipelines').then(setPipes); api('/form-base').then((d) => { base = d.url; rerender((n) => n + 1); }); }, []);
+  const saveBase = async () => {
+    const res = await post('/form-base', { url: baseEdit });
+    const d = await res.json();
+    if (!res.ok) return alert(d.error);
+    base = d.url; setBaseEdit(null);
+  };
 
   const setField = (i, v) => setF({ ...f, fields: f.fields.map((x, j) => (j === i ? { ...x, ...v } : x)) });
   const moveTo = (from, to) => { const a = [...f.fields]; a.splice(to, 0, a.splice(from, 1)[0]); setF({ ...f, fields: a }); };
@@ -181,6 +190,16 @@ export default function Forms() {
         <div><h1 className="page-title">Form</h1>
           <p className="muted">Buat form dengan field sendiri, lalu bagikan link atau QR-nya. Siapa pun bisa mengisi tanpa login.</p></div>
         <button className="fm-btn primary" onClick={() => setF(blank())}>+ Form baru</button>
+      </div>
+      <div className="fm-domain">
+        <span>🌐 Domain link share:</span>
+        {baseEdit === null ? (
+          <><b>{base || location.origin}</b>{!base && <small>(domain CRM)</small>}
+            <button className="link" onClick={() => setBaseEdit(base)}>ubah</button></>
+        ) : (
+          <><input autoFocus placeholder="https://form.palcomtech.ac.id (kosongkan = domain CRM)" value={baseEdit} onChange={(e) => setBaseEdit(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveBase()} />
+            <button className="fm-mini" onClick={saveBase}>Simpan</button><button className="link" onClick={() => setBaseEdit(null)}>batal</button></>
+        )}
       </div>
       {!rows.length ? (
         <div className="card fm-empty">📝<p>Belum ada form. Klik <b>+ Form baru</b> untuk mulai.</p></div>

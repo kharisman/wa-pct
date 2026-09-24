@@ -530,3 +530,7 @@ h2 .fm-hint { display: inline; margin-left: 8px; }
 .fm-chip:disabled { background: #e7f7ee; border-color: #bfe6cf; color: #1f9d55; cursor: default; }
 .fm-maptag { font-size: 12px; color: #1f6f9d; background: #e8f3fb; border-radius: 6px; padding: 4px 8px; align-self: flex-start; }
 .fm-field select:disabled { background: #f1f3f9; color: #6b7394; }
+
+.fm-domain { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -8px 0 16px; font-size: 13px; color: #6b7394; }
+.fm-domain b { color: var(--navy); }
+.fm-domain input { flex: 1; min-width: 240px; padding: 7px 10px; border: 1px solid #d9deef; border-radius: 8px; font: inherit; }

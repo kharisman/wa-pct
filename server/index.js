@@ -416,6 +416,13 @@ const cleanForm = (b) => {
     success_message: String(b.success_message || '').trim() || null,
     redirect_url: /^https?:\/\//i.test(redirect) ? redirect : null }; // cuma http(s), cegah javascript: dll
 };
+// Domain khusus link share form (mis. https://form.palcomtech.ac.id). Kosong = pakai domain CRM.
+app.get('/api/form-base', requireCap('forms'), async (_req, res) => res.json({ url: (await getSetting('FORM_BASE_URL')) || '' }));
+app.post('/api/form-base', requireCap('forms'), async (req, res) => {
+  const url = String(req.body?.url || '').trim().replace(/\/+$/, '');
+  if (url && !/^https?:\/\/[^/\s]+$/i.test(url)) return res.status(400).json({ error: 'Format: https://domain.com (tanpa path)' });
+  await setSetting('FORM_BASE_URL', url); res.json({ url });
+});
 app.get('/api/forms', requireCap('forms'), async (_req, res) => res.json(await listForms()));
 app.post('/api/forms', requireCap('forms'), async (req, res) => {
   const f = cleanForm(req.body);
