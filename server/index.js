@@ -139,14 +139,14 @@ app.get('/public/forms/:slug', async (req, res) => {
   const f = await getFormBySlug(req.params.slug);
   f ? res.json(f) : res.status(404).json({ error: 'Form tidak ditemukan' });
 });
-// Anti-spam: maks 5 kiriman / 10 menit per IP.
+// Anti-spam: maks 100 kiriman / menit per IP (longgar: pengunjung expo bisa berbagi 1 IP wifi).
 // ponytail: counter di memori (hilang saat restart, 1 proses saja) — pindah ke DB/Redis kalau server >1 instance
 const formHits = new Map();
 const formLimited = (ip) => {
-  const t = Date.now(), recent = (formHits.get(ip) || []).filter((x) => t - x < 10 * 60e3);
+  const t = Date.now(), recent = (formHits.get(ip) || []).filter((x) => t - x < 60e3);
   if (formHits.size > 10000) formHits.clear();
   formHits.set(ip, [...recent, t]);
-  return recent.length >= 5;
+  return recent.length >= 100;
 };
 // No. HP → format wa_id (628xxx). null kalau tidak valid.
 const toWaId = (s) => {
