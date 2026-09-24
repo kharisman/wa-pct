@@ -564,3 +564,15 @@ h2 .fm-hint { display: inline; margin-left: 8px; }
 .pf-score small { color: #6b7394; }
 .pf-score b { font-size: 40px; color: var(--navy); line-height: 1.1; }
 .pf-score span { color: #6b7394; font-size: 13px; }
+
+/* sidebar: menu scroll sendiri kalau kepanjangan, footer tetap di bawah */
+.sidebar nav { overflow-y: auto; min-height: 0; }
+.sidebar { height: 100vh; }
+/* tombol form builder di dalam .card jangan ketimpa gaya tombol kuning global */
+.card .fm-btn:not(.primary) { background: #fff; color: var(--navy); border: 1px solid #d9deef; padding: 8px 14px; font-weight: 600; }
+.card .fm-btn:not(.primary):hover { background: #f3f5fc; }
+.card .fm-btn.fm-danger { color: #c0392b; }
+.card .fm-chip { background: #fff; color: var(--navy); border: 1px solid #c9d0ea; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+.card .fm-chip:hover:not(:disabled) { background: var(--gold); border-color: var(--gold); color: var(--gold-ink); }
+.card .fm-chip:disabled { background: #e7f7ee; border-color: #bfe6cf; color: #1f9d55; opacity: 1; }
+.card .fm-mini { background: var(--navy); color: #fff; padding: 4px 10px; }
