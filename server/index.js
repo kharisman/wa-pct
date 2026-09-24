@@ -28,6 +28,19 @@ try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
 const app = express();
 app.set('trust proxy', 'loopback'); // di belakang Caddy (localhost) → req.ip = IP asli pengunjung
+// Domain form publik (setting FORM_BASE_URL, mis. https://formcrm.palcomtech.ac.id):
+// - di domain itu HANYA form publik yg bisa diakses (login/CRM/API ditutup)
+// - link /f/... yg dibuka dari domain CRM diarahkan ke domain form
+let formBase = ''; // diisi saat start & saat setting diubah
+const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; } };
+const FORM_HOST_OK = /^\/(f\/[\w-]+\/?|public\/forms\/[\w-]+|assets\/[\w.-]+|icon\.svg|manifest\.webmanifest)$/;
+app.use((req, res, next) => {
+  const fh = hostOf(formBase);
+  if (!fh) return next();
+  if (req.hostname === fh) return FORM_HOST_OK.test(req.path) ? next() : res.status(404).type('text').send('Not found');
+  if (/^\/f\/[\w-]+\/?$/.test(req.path)) return res.redirect(302, formBase + req.path);
+  next();
+});
 app.use(express.json({ limit: '30mb', verify: (req, _res, buf) => { req.rawBody = buf; } })); // simpan raw buat verifikasi signature
 mountAuth(app);
 
@@ -421,7 +434,8 @@ app.get('/api/form-base', requireCap('forms'), async (_req, res) => res.json({ u
 app.post('/api/form-base', requireCap('forms'), async (req, res) => {
   const url = String(req.body?.url || '').trim().replace(/\/+$/, '');
   if (url && !/^https?:\/\/[^/\s]+$/i.test(url)) return res.status(400).json({ error: 'Format: https://domain.com (tanpa path)' });
-  await setSetting('FORM_BASE_URL', url); res.json({ url });
+  if (url && hostOf(url) === req.hostname) return res.status(400).json({ error: 'Domain form harus beda dari domain CRM ini (kalau sama, CRM tidak bisa diakses)' });
+  await setSetting('FORM_BASE_URL', url); formBase = url; res.json({ url });
 });
 app.get('/api/forms', requireCap('forms'), async (_req, res) => res.json(await listForms()));
 app.post('/api/forms', requireCap('forms'), async (req, res) => {
@@ -632,6 +646,7 @@ await initChannels();
 await initPipelines();
 await initQuickReplies();
 await initForms();
+formBase = (await getSetting('FORM_BASE_URL')) || '';
 await initReminders();
 await initRoles();
 await initMasters();
