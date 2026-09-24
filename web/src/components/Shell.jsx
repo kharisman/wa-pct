@@ -7,6 +7,7 @@ import BroadcastPage from '../pages/BroadcastPage.jsx';
 import Agents from '../pages/Agents.jsx';
 import Templates from '../pages/Templates.jsx';
 import QuickReplies from '../pages/QuickReplies.jsx';
+import Forms from '../pages/Forms.jsx';
 import Reports from '../pages/Reports.jsx';
 import Channels from '../pages/Channels.jsx';
 import Settings from '../pages/Settings.jsx';
@@ -119,6 +120,7 @@ export default function Shell({ me, onLogout }) {
     ...(can('agents') ? [['agents', '🧑‍💼', 'Agen']] : []),
     ...(can('templates') ? [['templates', '📄', 'Template']] : []),
     ...(can('quick') ? [['quick', '⚡', 'Balasan Cepat']] : []),
+    ...(can('forms') ? [['forms', '📝', 'Form']] : []),
     ...(can('channels') ? [['channels', '📱', 'Nomor']] : []),
     ...(can('settings') ? [['settings', '⚙️', 'Setting']] : []),
   ];
@@ -173,6 +175,7 @@ export default function Shell({ me, onLogout }) {
         {nav === 'agents' && <Agents me={me} />}
         {nav === 'templates' && <Templates />}
         {nav === 'quick' && <QuickReplies />}
+        {nav === 'forms' && <Forms />}
         {nav === 'channels' && <Channels />}
         {nav === 'settings' && <Settings />}
       </main>

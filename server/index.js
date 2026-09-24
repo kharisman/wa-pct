@@ -10,6 +10,7 @@ import {
   setContactChannel, q,
   initPipelines, listPipelines, createPipeline, updatePipeline, deletePipeline,
   initQuickReplies, listQuickReplies, createQuickReply, deleteQuickReply,
+  initForms, listForms, getFormBySlug, createForm, updateForm, deleteForm, addFormResponse, listFormResponses,
   getSetting, setSetting, assignRoundRobin,
   initReminders, createReminder, listReminders, dueReminders, markReminderDone, deleteReminder,
 } from './db.js';
@@ -26,6 +27,7 @@ import { sendTelegram } from './telegram.js';
 try { process.loadEnvFile(); } catch { /* no .env, use real env */ }
 
 const app = express();
+app.set('trust proxy', 'loopback'); // di belakang Caddy (localhost) → req.ip = IP asli pengunjung
 app.use(express.json({ limit: '30mb', verify: (req, _res, buf) => { req.rawBody = buf; } })); // simpan raw buat verifikasi signature
 mountAuth(app);
 
@@ -130,6 +132,66 @@ app.post('/webhook', (req, res) => {
       }
     }
   })().catch((e) => console.error('webhook error', e));
+});
+
+/* ---- Form publik (tanpa login) ---- */
+app.get('/public/forms/:slug', async (req, res) => {
+  const f = await getFormBySlug(req.params.slug);
+  f ? res.json(f) : res.status(404).json({ error: 'Form tidak ditemukan' });
+});
+// Anti-spam: maks 5 kiriman / 10 menit per IP.
+// ponytail: counter di memori (hilang saat restart, 1 proses saja) — pindah ke DB/Redis kalau server >1 instance
+const formHits = new Map();
+const formLimited = (ip) => {
+  const t = Date.now(), recent = (formHits.get(ip) || []).filter((x) => t - x < 10 * 60e3);
+  if (formHits.size > 10000) formHits.clear();
+  formHits.set(ip, [...recent, t]);
+  return recent.length >= 5;
+};
+// No. HP → format wa_id (628xxx). null kalau tidak valid.
+const toWaId = (s) => {
+  let d = String(s || '').replace(/\D/g, '');
+  if (d.startsWith('0')) d = '62' + d.slice(1);
+  else if (d.startsWith('8')) d = '62' + d;
+  return /^\d{10,15}$/.test(d) ? d : null;
+};
+// Isian form → kontak (+ masuk pipeline form, + catatan berisi jawaban)
+async function formToContact(f, data) {
+  const tel = f.fields.find((x) => x.type === 'tel');
+  const waId = tel && toWaId(data[tel.key]);
+  if (!waId) return;
+  const nameF = f.fields.find((x) => /nama|name/i.test(x.label));
+  const before = await getContact(waId);
+  await upsertContact(waId, (nameF && data[nameF.key]) || null, null);
+  const c = await getContact(waId);
+  const labels = [...new Set([...JSON.parse(c.labels || '[]'), 'Form: ' + f.title])];
+  const answer = f.fields.filter((x) => x.type !== 'header').map((x) => `${x.label}: ${data[x.key] || '-'}`).join('\n');
+  const notes = [c.notes, `📝 ${f.title} (${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })})\n${answer}`].filter(Boolean).join('\n\n');
+  const upd = { labels, notes };
+  const pl = f.pipeline_id && (await listPipelines()).find((p) => p.id === f.pipeline_id);
+  if (pl && !c.stage) Object.assign(upd, { pipeline_id: pl.id, stage: pl.stages[0] }); // jangan pindahkan kontak yg sudah jalan di pipeline
+  await updateContact(waId, upd);
+  if (!before && (await getSetting('AUTO_ASSIGN')) === '1') await assignRoundRobin(waId);
+}
+app.post('/public/forms/:slug', async (req, res) => {
+  const f = await getFormBySlug(req.params.slug);
+  if (!f) return res.status(404).json({ error: 'Form tidak ditemukan' });
+  if (req.body?._hp) return res.json({ ok: true }); // honeypot: bot isi field tersembunyi → pura-pura sukses
+  if (Number(req.body?._t) && Date.now() - Number(req.body._t) < 3000) return res.status(400).json({ error: 'Terlalu cepat, coba lagi' });
+  if (formLimited(req.ip)) return res.status(429).json({ error: 'Terlalu banyak kiriman, coba lagi nanti' });
+  const data = {}; // simpan cuma field yang didefinisikan, bukan apa saja kiriman client
+  for (const fl of f.fields) {
+    if (fl.type === 'header') continue; // judul bagian, bukan isian
+    const v = String(req.body?.[fl.key] ?? '').trim().slice(0, 5000);
+    if (fl.required && !v) return res.status(400).json({ error: `${fl.label} wajib diisi` });
+    if (v && fl.type === 'select' && !(fl.options || []).includes(v)) return res.status(400).json({ error: `${fl.label} tidak valid` });
+    if (v && fl.type === 'tel' && !toWaId(v)) return res.status(400).json({ error: `${fl.label} tidak valid` });
+    if (v && fl.type === 'email' && !/^\S+@\S+\.\S+$/.test(v)) return res.status(400).json({ error: `${fl.label} tidak valid` });
+    data[fl.key] = v;
+  }
+  await addFormResponse(f.id, data);
+  try { await formToContact(f, data); } catch (e) { console.error('form → kontak gagal', e.message); } // jawaban tetap tersimpan
+  res.json({ ok: true });
 });
 
 /* ---- API buat frontend ---- */
@@ -336,6 +398,32 @@ app.delete('/api/quick-replies/:id', requireCap('quick'), async (req, res) => {
   await deleteQuickReply(req.params.id); res.json({ ok: true });
 });
 
+// ===== Form builder =====
+const cleanForm = (b) => {
+  const raw = (Array.isArray(b.fields) ? b.fields : []).filter((x) => x?.label);
+  // key baru = angka terbesar + 1, supaya field yg dipindah/ditambah tak bentrok dgn key lama (jawaban lama tetap nyambung)
+  let n = Math.max(0, ...raw.map((x) => Number(/^f(\d+)$/.exec(x.key || '')?.[1]) || 0));
+  const fields = raw.map((x) => ({
+    key: x.key || `f${++n}`, label: String(x.label), type: x.type || 'text', required: !!x.required,
+    options: x.type === 'select' ? (x.options || []).map(String).filter(Boolean) : undefined,
+  }));
+  return { title: b.title, description: b.description, fields, pipeline_id: Number(b.pipeline_id) || null };
+};
+app.get('/api/forms', requireCap('forms'), async (_req, res) => res.json(await listForms()));
+app.post('/api/forms', requireCap('forms'), async (req, res) => {
+  const f = cleanForm(req.body);
+  if (!f.title || !f.fields.some((x) => x.type !== 'header')) return res.status(400).json({ error: 'judul & minimal 1 field isian wajib' });
+  const slug = crypto.randomBytes(5).toString('hex'); // link acak, susah ditebak
+  res.json({ id: await createForm({ ...f, slug }), slug });
+});
+app.patch('/api/forms/:id', requireCap('forms'), async (req, res) => {
+  const f = cleanForm(req.body);
+  if (!f.title || !f.fields.some((x) => x.type !== 'header')) return res.status(400).json({ error: 'judul & minimal 1 field isian wajib' });
+  await updateForm(req.params.id, f); res.json({ ok: true });
+});
+app.delete('/api/forms/:id', requireCap('forms'), async (req, res) => { await deleteForm(req.params.id); res.json({ ok: true }); });
+app.get('/api/forms/:id/responses', requireCap('forms'), async (req, res) => res.json(await listFormResponses(req.params.id)));
+
 // ===== Pipeline (multi, custom) =====
 app.get('/api/pipelines', async (_req, res) => res.json(await listPipelines()));
 app.post('/api/pipelines', requireCap('pipeline_admin'), async (req, res) => {
@@ -529,6 +617,7 @@ await initTplMedia();
 await initChannels();
 await initPipelines();
 await initQuickReplies();
+await initForms();
 await initReminders();
 await initRoles();
 await initMasters();

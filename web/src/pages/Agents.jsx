@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api, post, patch } from '../api.js';
 
 const CAPS = [
-  ['reports', 'Laporan'], ['pipeline_admin', 'Kelola Pipeline'], ['quick', 'Balasan Cepat'],
+  ['reports', 'Laporan'], ['pipeline_admin', 'Kelola Pipeline'], ['quick', 'Balasan Cepat'], ['forms', 'Form'],
   ['templates', 'Template'], ['channels', 'Nomor'], ['agents', 'Kelola Agen & Role'], ['settings', 'Pengaturan/AI'],
 ];
 

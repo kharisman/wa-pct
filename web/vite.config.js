@@ -9,6 +9,7 @@ export default defineConfig({
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
       '/media': 'http://localhost:3000',
       '/webhook': 'http://localhost:3000',
+      '/public': 'http://localhost:3000',
     },
   },
 });

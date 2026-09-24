@@ -204,7 +204,7 @@ export const addMaster = (type, name) => q('INSERT INTO masters(type,name,create
 export const deleteMaster = (type, name) => q('DELETE FROM masters WHERE type=$1 AND name=$2', [type, name]);
 
 // ===== Roles & hak akses (custom) =====
-// perms = array capability: reports, agents, templates, quick, channels, settings, pipeline_admin. 'all' = admin penuh.
+// perms = array capability: reports, agents, templates, quick, forms, channels, settings, pipeline_admin. 'all' = admin penuh.
 export async function initRoles() {
   await q('CREATE TABLE IF NOT EXISTS roles (name text PRIMARY KEY, label text, perms text, created_at bigint NOT NULL)');
   if ((await q('SELECT count(*)::int c FROM roles')).rows[0].c === 0) {
@@ -336,3 +336,26 @@ export const incomingByChannel = async (period = 'week') => {
     WHERE m.direction='in' AND m.created_at BETWEEN $1 AND $2
     GROUP BY ch.label ORDER BY n DESC`, [from, to])).rows;
 };
+
+// ===== Form builder (bisa di-share publik lewat /f/<slug>) =====
+// fields: [{ key, label, type: text|textarea|number|email|tel|date|select, required, options: [] }]
+export async function initForms() {
+  await q('CREATE TABLE IF NOT EXISTS forms (id serial PRIMARY KEY, slug text UNIQUE NOT NULL, title text NOT NULL, description text, fields jsonb NOT NULL, created_at bigint NOT NULL)');
+  await q('CREATE TABLE IF NOT EXISTS form_responses (id serial PRIMARY KEY, form_id int NOT NULL REFERENCES forms(id) ON DELETE CASCADE, data jsonb NOT NULL, created_at bigint NOT NULL)');
+  await q('ALTER TABLE forms ADD COLUMN IF NOT EXISTS pipeline_id int'); // isian masuk ke pipeline ini
+  await q('ALTER TABLE forms ENABLE ROW LEVEL SECURITY');
+  await q('ALTER TABLE form_responses ENABLE ROW LEVEL SECURITY');
+}
+export const listForms = async () =>
+  (await q('SELECT f.id, f.slug, f.title, f.description, f.fields, f.pipeline_id, (SELECT count(*)::int FROM form_responses r WHERE r.form_id=f.id) AS responses FROM forms f ORDER BY f.id DESC')).rows;
+export const getFormBySlug = async (slug) =>
+  (await q('SELECT id, slug, title, description, fields, pipeline_id FROM forms WHERE slug=$1', [slug])).rows[0];
+export const createForm = async ({ slug, title, description, fields, pipeline_id }) =>
+  (await q('INSERT INTO forms(slug,title,description,fields,pipeline_id,created_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', [slug, title, description || '', JSON.stringify(fields), pipeline_id || null, Date.now()])).rows[0].id;
+export const updateForm = (id, { title, description, fields, pipeline_id }) =>
+  q('UPDATE forms SET title=$1, description=$2, fields=$3, pipeline_id=$4 WHERE id=$5', [title, description || '', JSON.stringify(fields), pipeline_id || null, id]);
+export const deleteForm = (id) => q('DELETE FROM forms WHERE id=$1', [id]);
+export const addFormResponse = (formId, data) =>
+  q('INSERT INTO form_responses(form_id,data,created_at) VALUES($1,$2,$3)', [formId, JSON.stringify(data), Date.now()]);
+export const listFormResponses = async (formId) =>
+  (await q('SELECT id, data, created_at FROM form_responses WHERE form_id=$1 ORDER BY id DESC', [formId])).rows;
