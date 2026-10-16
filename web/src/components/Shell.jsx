@@ -8,6 +8,7 @@ import Agents from '../pages/Agents.jsx';
 import Templates from '../pages/Templates.jsx';
 import QuickReplies from '../pages/QuickReplies.jsx';
 import Forms from '../pages/Forms.jsx';
+import ChatBuilder from '../pages/ChatBuilder.jsx';
 import Reports from '../pages/Reports.jsx';
 import Channels from '../pages/Channels.jsx';
 import Settings from '../pages/Settings.jsx';
@@ -122,6 +123,7 @@ export default function Shell({ me, onLogout }) {
     ...(can('quick') ? [['quick', '⚡', 'Balasan Cepat']] : []),
     ...(can('forms') ? [['forms', '📝', 'Form'], ['quiz', '🏆', 'Quiz'], ['survey', '📊', 'Survei']] : []),
     ...(can('channels') ? [['channels', '📱', 'Nomor']] : []),
+    ...(can('settings') ? [['chat', '🌐', 'Chat Builder']] : []),
     ...(can('settings') ? [['settings', '⚙️', 'Setting']] : []),
   ];
 
@@ -179,6 +181,7 @@ export default function Shell({ me, onLogout }) {
         {nav === 'quiz' && <Forms key="quiz" kind="quiz" />}
         {nav === 'survey' && <Forms key="survey" kind="survey" />}
         {nav === 'channels' && <Channels />}
+        {nav === 'chat' && <ChatBuilder />}
         {nav === 'settings' && <Settings />}
       </main>
     </div>

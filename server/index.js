@@ -219,8 +219,56 @@ app.post('/public/forms/:slug', async (req, res) => {
   res.json({ ok: true, ...(sc && f.show_score ? sc : {}) });
 });
 
+/* ---- Floating chat widget (embed di website lain, tanpa login) ---- */
+// Pengunjung = kontak dgn wa_id "web_<id acak>" (id disimpan di localStorage browser pengunjung).
+// ponytail: pengunjung ambil balasan via polling 4 detik — ganti SSE kalau trafik besar
+const CHAT_DEFAULT = { title: 'Chat dengan kami', agent: 'Customer Service', color: '#25d366', greeting: 'Halo 👋 Ada yang bisa kami bantu?' };
+const chatCfg = async () => ({ ...CHAT_DEFAULT, ...JSON.parse((await getSetting('CHAT_WIDGET')) || '{}') });
+const webId = (s) => (/^[a-f0-9]{16}$/.test(s || '') ? 'web_' + s : null);
+app.use(['/public/chat', '/chat.js'], (req, res, next) => {
+  res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' });
+  req.method === 'OPTIONS' ? res.sendStatus(204) : next();
+});
+app.get('/chat.js', (_req, res) => res.type('js').set('Cache-Control', 'max-age=300')
+  .sendFile(fileURLToPath(new URL('./chat-widget.js', import.meta.url))));
+app.get('/public/chat/config', async (_req, res) => res.json(await chatCfg()));
+app.get('/public/chat/:vid/messages', async (req, res) => {
+  const waId = webId(req.params.vid);
+  if (!waId) return res.status(400).json({ error: 'id tidak valid' });
+  const after = Number(req.query.after) || 0;
+  res.json((await listMessages(waId, null, 100)).filter((m) => m.direction !== 'note' && m.id > after)
+    .map((m) => ({ id: m.id, direction: m.direction, body: m.body, sent_by: m.sent_by, created_at: m.created_at })));
+});
+app.post('/public/chat/:vid', async (req, res) => {
+  const waId = webId(req.params.vid);
+  const body = String(req.body?.body || '').trim().slice(0, 2000);
+  if (!waId || !body) return res.status(400).json({ error: 'pesan kosong' });
+  if (formLimited(req.ip)) return res.status(429).json({ error: 'Terlalu banyak pesan, coba lagi nanti' });
+  const name = String(req.body?.name || '').trim().slice(0, 80) || null;
+  const before = await getContact(waId);
+  await upsertContact(waId, name || (before ? null : 'Pengunjung web'), null);
+  if (!before) {
+    await updateContact(waId, { labels: ['Web chat'] });
+    if ((await getSetting('AUTO_ASSIGN')) === '1') await assignRoundRobin(waId);
+  }
+  const id = await insertMessage({ waId, direction: 'in', body });
+  const who = name || before?.name || 'Pengunjung web';
+  broadcast({ kind: 'message', wa_id: waId, name: who, message: { id, direction: 'in', body, type: 'text', created_at: Date.now() } });
+  sendPushToAll({ title: '🌐 ' + who, body, wa_id: waId }).catch(() => {});
+  sendFcmToAll({ title: '🌐 ' + who, body, wa_id: waId }).catch(() => {});
+  sendTelegram(`🌐 Web chat dari ${who}\nAgen: ${before?.assignee || 'belum ada agen'}\n\n${body}`);
+  res.json({ id });
+});
+
 /* ---- API buat frontend ---- */
-app.use('/api', requireAuth); // semua /api di bawah ini butuh login
+app.use('/api', requireAuth);
+app.get('/api/chat-widget', requireCap('settings'), async (_req, res) => res.json(await chatCfg()));
+app.post('/api/chat-widget', requireCap('settings'), async (req, res) => {
+  const b = req.body || {}, s = (v, d) => String(v ?? '').trim().slice(0, 200) || d;
+  const c = { title: s(b.title, CHAT_DEFAULT.title), agent: s(b.agent, CHAT_DEFAULT.agent), greeting: s(b.greeting, ''),
+    color: /^#[0-9a-f]{6}$/i.test(b.color) ? b.color : CHAT_DEFAULT.color };
+  await setSetting('CHAT_WIDGET', JSON.stringify(c)); res.json(c);
+}); // semua /api di bawah ini butuh login
 
 app.get('/api/push/vapid-key', (_req, res) => res.json({ key: getVapidPublic() }));
 app.post('/api/push/subscribe', async (req, res) => { await savePushSub(req.user.email, req.body); res.json({ ok: true }); });
@@ -261,7 +309,7 @@ app.post('/api/send', async (req, res) => {
     // ponytail: hanya jalan dalam window 24 jam sejak pesan terakhir user.
     // Di luar itu WA wajib pakai approved template — tambah saat butuh outbound.
     const ch = await chanOf(wa_id);
-    const waMsgId = await sendText(ch, wa_id, body);
+    const waMsgId = wa_id.startsWith('web_') ? null : await sendText(ch, wa_id, body); // web chat: cukup disimpan, widget polling
     const id = await insertMessage({ waId: wa_id, direction: 'out', body, waMsgId, status: 'sent', sentBy: req.user.name, channelId: ch?.id });
     const message = { id, direction: 'out', body, type: 'text', status: 'sent', sent_by: req.user.name, created_at: Date.now() };
     broadcast({ kind: 'message', wa_id, message });
