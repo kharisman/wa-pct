@@ -242,6 +242,13 @@ app.get('/public/chat/:vid/messages', async (req, res) => {
   res.json((await listMessages(waId, null, 100)).filter((m) => m.direction !== 'note' && m.id > after)
     .map((m) => ({ id: m.id, direction: m.direction, body: m.body, sent_by: m.sent_by, created_at: m.created_at })));
 });
+app.post('/public/chat/:vid/end', async (req, res) => {
+  const waId = webId(req.params.vid);
+  if (!waId || !(await getContact(waId))) return res.json({ ok: true });
+  const id = await insertMessage({ waId, direction: 'note', body: '🔚 Pengunjung mengakhiri sesi chat', sentBy: 'Sistem' });
+  broadcast({ kind: 'message', wa_id: waId, message: { id, direction: 'note', body: '🔚 Pengunjung mengakhiri sesi chat', type: 'text', sent_by: 'Sistem', created_at: Date.now() } });
+  res.json({ ok: true });
+});
 app.post('/public/chat/:vid', async (req, res) => {
   const waId = webId(req.params.vid);
   const body = String(req.body?.body || '').trim().slice(0, 2000);
