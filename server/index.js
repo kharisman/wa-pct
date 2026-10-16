@@ -64,6 +64,9 @@ app.get('/webhook', (req, res) => {
   res.sendStatus(403);
 });
 
+// Pelanggan minta bicara dgn manusia (dipakai AI WA & web chat)
+const WANTS_HUMAN = /\b(admin|agen|manusia|customer service|operator|petugas|cs)\b|orang\s*(asli|nya)|bicara\s+langsung|sambungk?an|hubungk?an ke|ke\s+admin|dengan\s+admin/i;
+
 /* ---- Webhook receive: pesan masuk + update status ---- */
 app.post('/webhook', (req, res) => {
   // Verifikasi tanda tangan Meta (x-hub-signature-256) — tolak request palsu
@@ -114,7 +117,7 @@ app.post('/webhook', (req, res) => {
           sendTelegram(`💬 Pesan masuk dari ${profileName || m.from} (${m.from})\nMasuk ke: ${nomorTujuan}\nAgen: ${agent}\n\n${body}`);
           // AI otomatis balas kalau nomor ini AI-nya aktif (cuma pesan teks) & belum diambil alih agen
           if (ch?.ai_enabled && m.type === 'text' && !before?.ai_off) {
-            const wantsHuman = /\b(admin|agen|manusia|customer service|operator|petugas|cs)\b|orang\s*(asli|nya)|bicara\s+langsung|sambungk?an|hubungk?an ke|ke\s+admin|dengan\s+admin/i.test(body);
+            const wantsHuman = WANTS_HUMAN.test(body);
             try {
               if (wantsHuman) {
                 // Pelanggan minta manusia → matikan AI utk kontak ini, kirim pesan take over
@@ -222,7 +225,7 @@ app.post('/public/forms/:slug', async (req, res) => {
 /* ---- Floating chat widget (embed di website lain, tanpa login) ---- */
 // Pengunjung = kontak dgn wa_id "web_<id acak>" (id disimpan di localStorage browser pengunjung).
 // ponytail: pengunjung ambil balasan via polling 4 detik — ganti SSE kalau trafik besar
-const CHAT_DEFAULT = { title: 'Chat dengan kami', agent: 'Customer Service', color: '#25d366', greeting: 'Halo 👋 Ada yang bisa kami bantu?' };
+const CHAT_DEFAULT = { title: 'Chat dengan kami', agent: 'Customer Service', color: '#25d366', greeting: 'Halo 👋 Ada yang bisa kami bantu?', ai: false, ask_info: true };
 const chatCfg = async () => ({ ...CHAT_DEFAULT, ...JSON.parse((await getSetting('CHAT_WIDGET')) || '{}') });
 const webId = (s) => (/^[a-f0-9]{16}$/.test(s || '') ? 'web_' + s : null);
 app.use(['/public/chat', '/chat.js'], (req, res, next) => {
@@ -245,10 +248,12 @@ app.post('/public/chat/:vid', async (req, res) => {
   if (!waId || !body) return res.status(400).json({ error: 'pesan kosong' });
   if (formLimited(req.ip)) return res.status(429).json({ error: 'Terlalu banyak pesan, coba lagi nanti' });
   const name = String(req.body?.name || '').trim().slice(0, 80) || null;
+  const phone = req.body?.phone ? toWaId(req.body.phone) : null;
+  if (req.body?.phone && !phone) return res.status(400).json({ error: 'No. WA/HP tidak valid' });
   const before = await getContact(waId);
   await upsertContact(waId, name || (before ? null : 'Pengunjung web'), null);
   if (!before) {
-    await updateContact(waId, { labels: ['Web chat'] });
+    await updateContact(waId, { labels: ['Web chat'], notes: phone ? `No. WA/HP: ${phone}` : undefined });
     if ((await getSetting('AUTO_ASSIGN')) === '1') await assignRoundRobin(waId);
   }
   const id = await insertMessage({ waId, direction: 'in', body });
@@ -256,8 +261,26 @@ app.post('/public/chat/:vid', async (req, res) => {
   broadcast({ kind: 'message', wa_id: waId, name: who, message: { id, direction: 'in', body, type: 'text', created_at: Date.now() } });
   sendPushToAll({ title: '🌐 ' + who, body, wa_id: waId }).catch(() => {});
   sendFcmToAll({ title: '🌐 ' + who, body, wa_id: waId }).catch(() => {});
-  sendTelegram(`🌐 Web chat dari ${who}\nAgen: ${before?.assignee || 'belum ada agen'}\n\n${body}`);
+  sendTelegram(`🌐 Web chat dari ${who}${phone ? ' (' + phone + ')' : ''}\nAgen: ${before?.assignee || 'belum ada agen'}\n\n${body}`);
   res.json({ id });
+  // AI balas otomatis (setting widget) selama belum diambil alih agen
+  if (!(await chatCfg()).ai || before?.ai_off) return;
+  try {
+    const out = async (txt) => {
+      const rid = await insertMessage({ waId, direction: 'out', body: txt, status: 'sent', sentBy: 'AI' });
+      broadcast({ kind: 'message', wa_id: waId, message: { id: rid, direction: 'out', body: txt, type: 'text', status: 'sent', sent_by: 'AI', created_at: Date.now() } });
+    };
+    if (WANTS_HUMAN.test(body)) {
+      await setContactAiOff(waId, 1);
+      await out((await getSetting('AI_HANDOVER_TEXT')) || 'Baik, kakak akan kami hubungkan dengan admin kami ya 🙏 Mohon ditunggu sebentar.');
+      broadcast({ kind: 'handover', wa_id: waId, name: who });
+    } else {
+      const hist = (await listMessages(waId, null, 50)).filter((x) => x.direction !== 'note').slice(-20)
+        .map((x) => ({ role: x.direction === 'in' ? 'user' : 'assistant', content: x.body || '' }));
+      const reply = await aiReply(await aiSystem(), hist);
+      if (reply) await out(reply);
+    }
+  } catch (e) { console.error('AI web chat gagal', e.message); }
 });
 
 /* ---- API buat frontend ---- */
@@ -266,7 +289,7 @@ app.get('/api/chat-widget', requireCap('settings'), async (_req, res) => res.jso
 app.post('/api/chat-widget', requireCap('settings'), async (req, res) => {
   const b = req.body || {}, s = (v, d) => String(v ?? '').trim().slice(0, 200) || d;
   const c = { title: s(b.title, CHAT_DEFAULT.title), agent: s(b.agent, CHAT_DEFAULT.agent), greeting: s(b.greeting, ''),
-    color: /^#[0-9a-f]{6}$/i.test(b.color) ? b.color : CHAT_DEFAULT.color };
+    color: /^#[0-9a-f]{6}$/i.test(b.color) ? b.color : CHAT_DEFAULT.color, ai: !!b.ai, ask_info: b.ask_info !== false };
   await setSetting('CHAT_WIDGET', JSON.stringify(c)); res.json(c);
 }); // semua /api di bawah ini butuh login
 

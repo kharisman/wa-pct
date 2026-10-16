@@ -24,6 +24,8 @@ export default function ChatBuilder() {
           <div className="field"><label>Nama agen yang menerima</label><input required value={f.agent} onChange={set('agent')} /></div>
           <div className="field"><label>Sapaan awal</label><input value={f.greeting} placeholder="(kosong = tanpa sapaan)" onChange={set('greeting')} /></div>
           <div className="field"><label>Warna header</label><input type="color" value={f.color} onChange={set('color')} /></div>
+          <div className="field"><label><input type="checkbox" checked={f.ask_info} onChange={(e) => setF({ ...f, ask_info: e.target.checked })} /> Minta nama & no. WhatsApp sebelum chat</label></div>
+          <div className="field"><label><input type="checkbox" checked={f.ai} onChange={(e) => setF({ ...f, ai: e.target.checked })} /> Dibalas AI otomatis (pakai setting AI; berhenti kalau pengunjung minta admin)</label></div>
           <div className="row"><button>Simpan</button>{msg && <span className={msg.startsWith('✓') ? 'saved' : 'err'}>{msg}</span>}</div>
         </form>
       </div>
