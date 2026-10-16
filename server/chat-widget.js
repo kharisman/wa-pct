@@ -8,7 +8,7 @@
     try { localStorage.setItem('crm_chat_id', vid); } catch (e) {}
   }
   if (!/^[a-f0-9]{16}$/.test(vid || '')) newId();
-  var last = 0, timer, cfg, info;
+  var last = 0, es, seen = {}, cfg, info;
   try { info = JSON.parse(localStorage.getItem('crm_chat_info') || 'null'); } catch (e) {}
   var esc = function (s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
 
@@ -52,21 +52,20 @@
       if (!confirm('Akhiri sesi chat ini?')) return;
       fetch(base + '/public/chat/' + vid + '/end', { method: 'POST' }).catch(function () {});
       try { localStorage.removeItem('crm_chat_info'); } catch (e) {}
-      info = null; last = 0; newId(); ms.innerHTML = '';
+      info = null; last = 0; seen = {}; newId(); listen(); ms.innerHTML = '';
       if (c.greeting) add({ direction: 'out', body: c.greeting });
       if (needInfo()) pre.n.focus();
     };
     root.querySelector('.btn').onclick = function () {
       box.classList.toggle('open');
-      clearInterval(timer);
-      if (box.classList.contains('open')) { poll(); timer = setInterval(poll, 4000); (needInfo() ? pre.n : input).focus(); }
+      if (box.classList.contains('open')) { if (!es) listen(); (needInfo() ? pre.n : input).focus(); }
     };
     chat.onsubmit = function (e) {
       e.preventDefault();
       var body = input.value.trim(); if (!body) return;
       input.value = '';
       fetch(base + '/public/chat/' + vid, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: body, name: info && info.name, phone: info && info.phone }) })
-        .then(poll);
+        .then(function (r) { if (!r.ok) return r.json().then(function (d) { add({ direction: 'out', body: '⚠️ ' + (d.error || 'Gagal mengirim') }); }); });
     };
     function add(m) {
       var d = document.createElement('div');
@@ -74,10 +73,18 @@
       d.innerHTML = (m.direction === 'out' ? '<i>' + esc(c.agent) + '</i>' : '') + esc(m.body);
       ms.appendChild(d); ms.scrollTop = ms.scrollHeight;
     }
+    function got(m) { if (m.id && seen[m.id]) return; if (m.id) { seen[m.id] = 1; last = Math.max(last, m.id); } add(m); }
     function poll() {
       return fetch(base + '/public/chat/' + vid + '/messages?after=' + last).then(function (r) { return r.json(); }).then(function (list) {
-        list.forEach(function (m) { last = Math.max(last, m.id); add(m); });
+        list.forEach(got);
       }).catch(function () {});
+    }
+    // Realtime: pesan baru langsung didorong server (SSE); tiap (re)connect ambil yg terlewat
+    function listen() {
+      if (es) es.close();
+      es = new EventSource(base + '/public/chat/' + vid + '/stream');
+      es.onopen = poll;
+      es.onmessage = function (e) { got(JSON.parse(e.data)); };
     }
   });
 })();

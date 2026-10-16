@@ -49,7 +49,11 @@ const clients = new Set();
 const broadcast = (event) => {
   const line = `data: ${JSON.stringify(event)}\n\n`;
   for (const res of clients) res.write(line);
+  // web chat: kirim juga ke widget pengunjung (selain catatan internal)
+  const m = event.kind === 'message' && event.message;
+  if (m && m.direction !== 'note') for (const res of visitors.get(event.wa_id) || []) res.write(`data: ${JSON.stringify(m)}\n\n`);
 };
+const visitors = new Map(); // wa_id web_xxx -> Set(res SSE widget)
 app.get('/api/stream', requireAuth, (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   res.flushHeaders();
@@ -242,6 +246,17 @@ app.get('/public/chat/:vid/messages', async (req, res) => {
   res.json((await listMessages(waId, null, 100)).filter((m) => m.direction !== 'note' && m.id > after)
     .map((m) => ({ id: m.id, direction: m.direction, body: m.body, sent_by: m.sent_by, created_at: m.created_at })));
 });
+// Realtime ke widget (SSE). EventSource otomatis reconnect.
+app.get('/public/chat/:vid/stream', (req, res) => {
+  const waId = webId(req.params.vid);
+  if (!waId) return res.sendStatus(400);
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders();
+  if (!visitors.has(waId)) visitors.set(waId, new Set());
+  visitors.get(waId).add(res);
+  const ping = setInterval(() => res.write(': ping\n\n'), 25e3); // jaga koneksi lewat proxy
+  req.on('close', () => { clearInterval(ping); visitors.get(waId)?.delete(res); if (!visitors.get(waId)?.size) visitors.delete(waId); });
+});
 app.post('/public/chat/:vid/end', async (req, res) => {
   const waId = webId(req.params.vid);
   if (!waId || !(await getContact(waId))) return res.json({ ok: true });
@@ -287,7 +302,11 @@ app.post('/public/chat/:vid', async (req, res) => {
       const reply = await aiReply(await aiSystem(), hist);
       if (reply) await out(reply);
     }
-  } catch (e) { console.error('AI web chat gagal', e.message); }
+  } catch (e) {
+    console.error('AI web chat gagal', e.message);
+    const nid = await insertMessage({ waId, direction: 'note', body: '⚠️ AI gagal membalas: ' + e.message, sentBy: 'Sistem' }); // biar kelihatan di CRM
+    broadcast({ kind: 'message', wa_id: waId, message: { id: nid, direction: 'note', body: '⚠️ AI gagal membalas: ' + e.message, type: 'text', sent_by: 'Sistem', created_at: Date.now() } });
+  }
 });
 
 /* ---- API buat frontend ---- */
